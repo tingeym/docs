@@ -1,0 +1,255 @@
+---
+title: "Manage Affiliate Follow-Ups with Custom Catch Ups"
+sidebarTitle: "Custom Catch-Ups"
+description: "Create and manage affiliate follow-up tasks via the Custom Catch Ups API, with support for SMS, to-do tasks, and link-redirection action types."
+---
+
+Custom Catch Ups let you programmatically create structured follow-up actions for affiliates in your company. Unlike system-generated catch ups that Fluid creates automatically from user behavior, custom catch ups are created through the API so you can track specific tasks, trigger communications, or route affiliates to targeted content. Each catch up can include an action that tells Fluid how to execute the follow-up — send a message, create a task, or track a link redirect. This guide covers all four CRUD endpoints and every available action type.
+
+## Authentication
+
+All Custom Catch Ups endpoints require a valid **company token** passed as a Bearer token.
+
+```
+Authorization: Bearer {your_company_token}
+```
+
+## Available Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/company/custom_catch_ups` | List all custom catch ups for your company |
+| `POST` | `/api/company/custom_catch_ups` | Create a new custom catch up |
+| `PATCH` | `/api/company/custom_catch_ups/{id}` | Update an existing custom catch up |
+| `DELETE` | `/api/company/custom_catch_ups/{id}` | Permanently delete a custom catch up |
+
+## Create a Catch Up
+
+**`POST /api/company/custom_catch_ups`**
+
+Creates a new custom catch up and, optionally, an associated action.
+
+### Request Parameters
+
+<ParamField body="affiliate_id" type="integer" required>
+  The ID of the affiliate (user-company membership) this catch up is assigned to.
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  A short, descriptive title for the catch up shown in the affiliate's task list.
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  A type identifier for the catch up (e.g., `"follow_up"`, `"demo_request"`, `"reminder"`).
+</ParamField>
+
+<ParamField body="description" type="string">
+  A longer description providing context for the affiliate or the action to be taken.
+</ParamField>
+
+<ParamField body="contact_id" type="integer">
+  The ID of the contact associated with this catch up. Required when using `SendSmsCatchUpAction` or `ToDoCatchUpAction`.
+</ParamField>
+
+<ParamField body="actions" type="object">
+  An action configuration object. Optional — omit this field to create a catch up for tracking purposes only. See [Action Types](#action-types) below.
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.fluid.app/api/company/custom_catch_ups \
+  -H "Authorization: Bearer your_company_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "affiliate_id": 789,
+    "title": "Follow up on product inquiry",
+    "description": "Customer showed interest in our premium package",
+    "type": "follow_up",
+    "contact_id": 456,
+    "actions": {
+      "type": "SendSmsCatchUpAction",
+      "action_prompt": "Send a friendly follow-up about the premium package inquiry"
+    }
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "catch_up": {
+    "id": 123,
+    "company_id": 456,
+    "user_company_id": 789,
+    "suggestion_title": "Follow up on product inquiry",
+    "suggestion_description": "Customer showed interest in our premium package",
+    "catch_up_class": "CUSTOM_CATCH_UP",
+    "catch_up_actions": [
+      {
+        "id": 321,
+        "type": "SendSmsCatchUpAction",
+        "status": "pending",
+        "action_data": {
+          "meta": {
+            "klass": "CUSTOM_CATCH_UP",
+            "language": "English",
+            "action_prompt": "Send a friendly follow-up about the premium package inquiry"
+          }
+        }
+      }
+    ],
+    "created_at": "2023-12-01T10:00:00Z",
+    "updated_at": "2023-12-01T10:00:00Z"
+  },
+  "meta": {
+    "request_id": "abc123",
+    "timestamp": "2023-12-01T10:00:00Z"
+  }
+}
+```
+
+## Update a Catch Up
+
+**`PATCH /api/company/custom_catch_ups/{id}`**
+
+Updates the title or description of an existing catch up.
+
+```bash
+curl -X PATCH https://api.fluid.app/api/company/custom_catch_ups/123 \
+  -H "Authorization: Bearer your_company_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "suggestion_title": "Updated follow-up title",
+    "suggestion_description": "Updated description with more details"
+  }'
+```
+
+## Delete a Catch Up
+
+**`DELETE /api/company/custom_catch_ups/{id}`**
+
+Permanently deletes the catch up and all associated actions.
+
+```bash
+curl -X DELETE https://api.fluid.app/api/company/custom_catch_ups/123 \
+  -H "Authorization: Bearer your_company_token"
+```
+
+## Action Types
+
+Attach one of the following action types to a catch up via the `actions` field. Each type has different requirements and execution behavior.
+
+<Accordion title="SendSmsCatchUpAction — Send a message to a contact">
+  Sends an SMS or email to the associated contact. Fluid automatically determines the channel based on the contact's available information: phone number for SMS, email address for email, or direct message as a fallback.
+
+  **Requirements:** `contact_id` must be set on the catch up. The contact must have a phone number or email address.
+
+  **Configuration:**
+
+  ```json
+  {
+    "type": "SendSmsCatchUpAction",
+    "action_prompt": "Custom message prompt for AI-generated content"
+  }
+  ```
+
+  **What happens on execution:**
+  1. Creates a conversation with the contact
+  2. Sends the message via SMS, email, or direct message
+  3. Marks the action as executed
+</Accordion>
+
+<Accordion title="ToDoCatchUpAction — Create a task">
+  Creates a task that appears in the affiliate's task management interface for manual follow-up.
+
+  **Requirements:** `contact_id` must be set on the catch up.
+
+  **Configuration:**
+
+  ```json
+  {
+    "type": "ToDoCatchUpAction",
+    "action_prompt": "Task description for the to-do item"
+  }
+  ```
+
+  **Execution parameters** (passed when the affiliate executes the action):
+
+  ```json
+  {
+    "task": {
+      "body": "Task description",
+      "due_at": "2023-12-15T10:00:00Z"
+    }
+  }
+  ```
+
+  **What happens on execution:**
+  1. Creates a new Task record
+  2. Associates it with the specified contact and affiliate
+  3. Marks the action as executed
+</Accordion>
+
+<Accordion title="LinkRedirectionCatchUpAction — Track or redirect">
+  A lightweight action for tracking engagement or redirecting affiliates to specific content. No contact is required.
+
+  **Requirements:** None — `contact_id` is optional.
+
+  **Configuration:**
+
+  ```json
+  {
+    "type": "LinkRedirectionCatchUpAction",
+    "data": {
+      "url": "https://example.com/redirect",
+      "tracking_info": "campaign_123"
+    }
+  }
+  ```
+
+  **What happens on execution:** Marks itself as read/executed. No message or task is created.
+</Accordion>
+
+<Note>
+  Catch ups without an `actions` field are valid and are created successfully. They serve as simple reminders or tracking entries, but have no executable behavior.
+</Note>
+
+## Error Responses
+
+| Status | Cause |
+|---|---|
+| `401 Unauthorized` | Invalid or missing Bearer token, or the affiliate is not authorized |
+| `404 Not Found` | No catch up found with the specified `id` |
+| `422 Unprocessable Entity` | Validation failed — inspect `errors` in the response body |
+
+**Example validation error:**
+
+```json
+{
+  "error_message": "Failed to create Catch Up",
+  "errors": {
+    "title": ["can't be blank"],
+    "affiliate_id": ["is required"]
+  },
+  "meta": {
+    "request_id": "abc123",
+    "timestamp": "2023-12-01T10:00:00Z"
+  }
+}
+```
+
+**Example not-found error:**
+
+```json
+{
+  "error_message": "Catch Up not found",
+  "errors": {
+    "id": ["not found"]
+  },
+  "meta": {
+    "request_id": "abc123",
+    "timestamp": "2023-12-01T10:00:00Z"
+  }
+}
+```

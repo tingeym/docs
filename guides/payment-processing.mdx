@@ -1,0 +1,247 @@
+---
+title: "Intelligent Payment Routing with Fluid Orchestration"
+sidebarTitle: "Payment Routing"
+description: "Configure Fluid's Orchestration Routing Engine to distribute transactions across multiple PSPs using volume splits, rule-based conditions, and fallbacks."
+---
+
+Fluid's **Orchestration Routing Engine** gives you precise, programmatic control over how card transactions are distributed across your Payment Service Providers (PSPs). Instead of relying on a single gateway, you define routing rules — by volume percentage, payment type, geography, transaction amount, or currency — and the engine automatically directs each transaction to the most appropriate account. Whether you need redundancy, cost optimization, or regional compliance, Fluid Orchestration adapts to your requirements without code changes after setup.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Volume-Based Routing" icon="chart-pie">
+    Distribute traffic by percentage across multiple payment accounts — for example, 60% to your primary processor and 40% to a secondary one. Distribution converges to your configured percentages over time using weighted random selection.
+  </Card>
+  <Card title="Rule-Based Routing" icon="code-branch">
+    Define conditional rules evaluated in priority order. Route Apple Pay to one gateway, high-value US orders to another, and European transactions to a region-specific processor — all in a single configuration.
+  </Card>
+  <Card title="Default Fallback" icon="shield-check">
+    A priority-ordered list of payment accounts is always available as a safety net. If no configuration is active or no rule matches, the engine falls back to this list automatically.
+  </Card>
+  <Card title="Auto-Sync" icon="arrows-rotate">
+    Payment accounts are automatically added to or removed from the fallback list whenever they are created, activated, deactivated, or deleted — no manual updates required.
+  </Card>
+  <Card title="Apple Pay & Google Pay" icon="mobile">
+    Digital wallet transactions are routed through the same engine as traditional card payments, so you can direct Apple Pay and Google Pay to whichever processor offers the best rates or features.
+  </Card>
+  <Card title="One Active Configuration" icon="toggle-on">
+    Only one configuration can be active at a time, which prevents conflicting rules. Activating a new configuration automatically deactivates the previous one.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+When a customer initiates a payment, the routing engine executes the following decision tree:
+
+1. **Check for an active configuration.** If none exists, skip to step 4.
+2. **Volume-based path.** If the active configuration is `volume_based`, use weighted random selection to pick a payment account based on the configured percentages.
+3. **Rule-based path.** If the active configuration is `rule_based`, evaluate each rule in ascending priority order. The first rule whose conditions all match wins.
+4. **Default fallback.** If no configuration is active, or if no rule matches, select the highest-priority account from the default fallback list.
+5. **Process the transaction.** The selected payment account processes the payment.
+
+## Configuration Types
+
+<Tabs>
+  <Tab title="Volume-Based">
+    Volume-based routing distributes traffic across payment accounts using weighted random selection. Over a large number of transactions, the actual split converges to your configured percentages.
+
+    **Example: 60/40 split between two processors**
+
+    ```bash cURL
+    curl -X POST "https://api.fluid.app/api/fluid_orchestration/configurations" \
+      -H "Authorization: Bearer YOUR_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "configuration": {
+          "name": "60/40 Traffic Split",
+          "configuration_type": "volume_based",
+          "description": "Route 60% to primary processor, 40% to secondary",
+          "settings": {
+            "distributions": [
+              { "payment_account_id": 1, "percentage": 60 },
+              { "payment_account_id": 2, "percentage": 40 }
+            ]
+          }
+        }
+      }'
+    ```
+
+    <Warning>
+      Percentages across all distributions must sum to exactly **100**. The API will reject the request if the total is anything other than 100.
+    </Warning>
+
+    Use volume-based routing when you want redundancy or are gradually migrating volume to a new processor. Consider starting with a conservative 90/10 split when onboarding a new PSP.
+  </Tab>
+
+  <Tab title="Rule-Based">
+    Rule-based routing evaluates a prioritized list of conditions to select a payment account. Rules are evaluated in ascending order by `priority` (lowest number first). The first matching rule determines the account; if no rule matches, the default fallback is used.
+
+    **Supported conditions** (combinable with AND logic within a single rule):
+
+    | Condition | Type | Description | Example Values |
+    |---|---|---|---|
+    | `payment_source` | enum | Payment method type | `"card"`, `"apple_pay"`, `"google_pay"` |
+    | `country_iso` | array | List of country codes | `["US", "CA", "GB"]` |
+    | `amount_greater_than` | number | Minimum amount (exclusive) | `100.00`, `500` |
+    | `amount_less_than` | number | Maximum amount (exclusive) | `1000.00`, `50` |
+    | `currency_code` | string | Currency code | `"USD"`, `"EUR"`, `"GBP"` |
+
+    **Example: Route Apple Pay to NMI, high-value US orders to Stripe**
+
+    ```bash cURL
+    curl -X POST "https://api.fluid.app/api/fluid_orchestration/configurations" \
+      -H "Authorization: Bearer YOUR_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "configuration": {
+          "name": "Payment Source Routing",
+          "configuration_type": "rule_based",
+          "description": "Route Apple Pay to NMI, high-value US orders to Stripe",
+          "settings": {
+            "rules": [
+              {
+                "name": "Apple Pay to NMI",
+                "priority": 1,
+                "payment_account_id": 123,
+                "conditions": {
+                  "payment_source": "apple_pay"
+                }
+              },
+              {
+                "name": "High Value US Orders",
+                "priority": 2,
+                "payment_account_id": 456,
+                "conditions": {
+                  "country_iso": ["US"],
+                  "amount_greater_than": 500
+                }
+              }
+            ]
+          }
+        }
+      }'
+    ```
+
+    When multiple conditions appear in a single rule (such as `country_iso` and `amount_greater_than` above), **all conditions must match** for the rule to apply.
+  </Tab>
+
+  <Tab title="Default Fallback">
+    The default fallback is a priority-ordered list of payment accounts that the engine uses whenever no active configuration exists or when no rule in a rule-based configuration matches. Fluid auto-maintains this list:
+
+    - New active payment accounts are appended to the end of the list
+    - Deactivated or deleted accounts are removed automatically
+    - You can manually reorder the list at any time via the API
+
+    **Reorder the default fallback**
+
+    ```bash cURL
+    curl -X PATCH "https://api.fluid.app/api/fluid_orchestration/default_fallback" \
+      -H "Authorization: Bearer YOUR_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "priority_order": [
+          { "payment_account_id": 2, "priority": 1 },
+          { "payment_account_id": 1, "priority": 2 }
+        ]
+      }'
+    ```
+
+    The fallback list guarantees that payments continue to process even when configuration changes are in progress. Never delete all active payment accounts without ensuring at least one remains in the fallback list.
+  </Tab>
+</Tabs>
+
+## Supported Conditions
+
+Use the following conditions in rule-based configurations to control routing logic. Combine multiple conditions within a single rule using AND logic — every condition must match for the rule to fire.
+
+| Condition | Type | Description | Example Values |
+|---|---|---|---|
+| `payment_source` | enum | Payment method type | `"card"`, `"apple_pay"`, `"google_pay"` |
+| `country_iso` | array | List of ISO country codes | `["US", "CA", "GB"]` |
+| `amount_greater_than` | number | Minimum transaction amount (exclusive) | `100.00`, `500` |
+| `amount_less_than` | number | Maximum transaction amount (exclusive) | `1000.00`, `50` |
+| `currency_code` | string | ISO currency code | `"USD"`, `"EUR"`, `"GBP"` |
+
+## API Endpoints
+
+All endpoints live under the base path `/api/fluid_orchestration`.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/status` | Returns the active configuration, default fallback, and available payment accounts |
+| `POST` | `/configurations` | Create a new routing configuration |
+| `PATCH` | `/configurations/:id` | Update an existing configuration |
+| `DELETE` | `/configurations/:id` | Delete a configuration (must be inactive first) |
+| `POST` | `/configurations/:id/activate` | Activate a configuration (deactivates any currently active one) |
+| `POST` | `/configurations/:id/deactivate` | Deactivate a configuration; default fallback takes over |
+| `GET` | `/default_fallback` | Retrieve the current default fallback priority list |
+| `PATCH` | `/default_fallback` | Reorder the default fallback priority list |
+
+**Example: Get current routing status**
+
+```bash cURL
+curl -X GET "https://api.fluid.app/api/fluid_orchestration/status" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```json Response
+{
+  "active_configuration": {
+    "id": 1,
+    "name": "Volume Based Routing",
+    "configuration_type": "volume_based",
+    "active": true,
+    "settings": {
+      "distributions": [
+        { "payment_account_id": 1, "percentage": 60 },
+        { "payment_account_id": 2, "percentage": 40 }
+      ]
+    }
+  },
+  "default_fallback": {
+    "priority_order": [
+      { "payment_account_id": 1, "name": "Braintree", "priority": 1 },
+      { "payment_account_id": 2, "name": "NMI", "priority": 2 }
+    ]
+  },
+  "available_payment_accounts": [],
+  "supported_conditions": [],
+  "configuration_types": ["volume_based", "rule_based"]
+}
+```
+
+## Best Practices
+
+### 3D Secure (3DS) Compatibility
+
+When routing across multiple payment accounts, all accounts in the configuration must use the **same 3DS provider**. Mixing accounts with different 3DS providers — or mixing accounts that have 3DS with those that do not — can cause checkout failures for your customers.
+
+<Warning>
+  **3DS compatibility matrix — verify before activating any configuration:**
+
+  | Scenario | Result |
+  |---|---|
+  | All accounts use VGS 3DS | ✅ Works correctly |
+  | All accounts have no 3DS | ✅ Works correctly |
+  | Mixed 3DS providers | ❌ May cause checkout failures |
+  | Some accounts with 3DS, some without | ❌ May cause checkout failures |
+
+  Group payment accounts by 3DS provider when creating volume-based or rule-based configurations. If you need to route to accounts with different 3DS setups, create separate configurations scoped by `payment_source` or `country_iso`.
+</Warning>
+
+### Testing Checklist
+
+Before activating any new configuration in production, work through this checklist:
+
+1. **Create without activating.** Save the configuration first and review it before making it live.
+2. **Verify payment account IDs.** Confirm all referenced `payment_account_id` values are valid and active in your Fluid dashboard.
+3. **Check percentage totals.** For volume-based configurations, confirm all `percentage` values sum to exactly 100.
+4. **Validate rule ordering.** For rule-based configurations, trace through your rules manually with sample transactions to confirm the priority order produces the expected results.
+5. **Confirm 3DS alignment.** Ensure all payment accounts in the configuration share the same 3DS configuration (or all have none).
+6. **Monitor post-activation.** Watch payment success rates immediately after activating. If failures spike, deactivate the configuration to revert to the default fallback while you investigate.
+
+### Configuration Management Tips
+
+- **Gradual rollout.** When adding a new processor, start with a conservative volume split (e.g., 90/10) and increase the new processor's share as you build confidence.
+- **Descriptive naming.** Use clear `name` and `description` values on configurations and rules so your team can understand intent without reading the raw JSON.
+- **Fallback safety.** Always keep at least one healthy payment account in the default fallback list. The fallback is your last line of defense if a configuration produces no matches.

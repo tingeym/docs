@@ -1,0 +1,212 @@
+---
+title: "Fluid Themes CLI: Develop Themes Locally"
+sidebarTitle: "CLI"
+description: "Use the Fluid Themes CLI to pull, push, and develop themes locally with your preferred IDE, AI agents, and a live development server."
+---
+
+The Fluid Themes CLI (`fluid`) is a command-line tool that bridges your local development environment with the Fluid platform. Instead of editing templates exclusively inside the browser-based admin editor, you can pull any theme to your local machine, work in your preferred IDE with full access to AI agents and version control, and push changes back to Fluid with a single command. The CLI supports a live development server for real-time feedback while you iterate.
+
+## Installation
+
+<Tabs>
+  <Tab title="RubyGems">
+    Install the CLI gem directly from RubyGems:
+
+    ```bash
+    gem install fluid_cli
+    ```
+
+    <Note>
+      If you have an older version of `fluid_cli` installed from a GitHub repository, uninstall it first to avoid conflicts before installing from RubyGems.
+    </Note>
+  </Tab>
+  <Tab title="Homebrew">
+    Add the Fluid tap and install:
+
+    ```bash
+    brew tap fluid-commerce/fluid
+    brew install fluid_cli
+    ```
+
+    Alternatively, install in a single command:
+
+    ```bash
+    brew install fluid-commerce/fluid/fluid_cli
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  The CLI executable is `fluid` (not `fluid_cli`). All commands use the `fluid` prefix.
+</Note>
+
+## Authentication
+
+Before running any theme commands, authenticate with your Fluid account:
+
+```bash
+fluid login
+```
+
+This opens a browser window prompting you to sign in through `admin.fluid.app`. Once you confirm, the CLI stores your credentials locally and automatically connects to your currently selected company.
+
+To verify which account and company you're connected to:
+
+```bash
+fluid whoami
+```
+
+To log out and clear stored credentials:
+
+```bash
+fluid logout
+```
+
+## Company Management
+
+If your account has access to multiple companies, switch between them without re-authenticating:
+
+```bash
+# Interactive list — choose from all available companies
+fluid switch
+
+# Switch directly to a known company by subdomain
+fluid switch -c mystore
+# or
+fluid switch --company=mystore
+```
+
+## Theme Commands
+
+All theme operations are subcommands of `fluid theme`.
+
+### Initialize a new theme project
+
+```bash
+fluid theme init
+```
+
+Creates the scaffolded folder structure for a new theme in the current directory.
+
+### Pull a theme from Fluid
+
+```bash
+# Pull and sync — removes local files that no longer exist on the server
+fluid theme pull
+
+# Pull without deleting — preserves local files not on the server
+fluid theme pull --nodelete
+```
+
+`fluid theme pull` downloads the current state of your selected theme from the Fluid platform into the current directory. By default, any local files that don't exist on the server are deleted to keep the two environments in sync. Use `--nodelete` to preserve extra local files.
+
+### Push local changes to Fluid
+
+```bash
+# Push to the existing theme
+fluid theme push
+
+# Create a new draft theme instead of overwriting the existing one
+fluid theme push --unpublished
+
+# Push without deleting server files that don't exist locally
+fluid theme push --nodelete
+
+# Combine flags
+fluid theme push --unpublished --nodelete
+```
+
+Use `--unpublished` when you want to create a new draft on the server rather than overwrite the published theme — useful for staging a set of changes before a controlled release.
+
+### Start a local development server
+
+```bash
+fluid theme dev
+```
+
+Starts a local development server that watches your local files for changes and syncs them to Fluid in real time, giving you live feedback as you edit.
+
+<Note>
+  `fluid theme dev` currently only works with the RubyGems installation. Homebrew installations do not yet support the development server. Install via RubyGems if you need live development mode.
+</Note>
+
+## Getting Started Workflow
+
+<Steps>
+  <Step title="Install the CLI">
+    Install via RubyGems or Homebrew using the commands above. Verify the installation:
+
+    ```bash
+    fluid --version
+    ```
+  </Step>
+  <Step title="Authenticate">
+    Log in to your Fluid account:
+
+    ```bash
+    fluid login
+    ```
+
+    Confirm your connected company:
+
+    ```bash
+    fluid whoami
+    ```
+  </Step>
+  <Step title="Create a project directory">
+    Create a dedicated folder for your theme work and navigate into it:
+
+    ```bash
+    mkdir my-theme
+    cd my-theme
+    ```
+  </Step>
+  <Step title="Pull an existing theme">
+    Download the current theme from your Fluid company into the local directory:
+
+    ```bash
+    fluid theme pull
+    ```
+
+    You'll see all the theme files — layouts, templates, sections, assets, and locales — appear in your local folder.
+  </Step>
+  <Step title="Start the development server">
+    Launch the live-reload development server:
+
+    ```bash
+    fluid theme dev
+    ```
+
+    Open your storefront preview URL in a browser. Any file you save locally is automatically synced to Fluid and reflected in the browser.
+  </Step>
+  <Step title="Push your finished changes">
+    When you're done, push all local changes back to Fluid:
+
+    ```bash
+    # Update the existing theme
+    fluid theme push
+
+    # Or create a new draft for review
+    fluid theme push --unpublished
+    ```
+
+    Then open the Fluid admin to preview and publish the theme.
+  </Step>
+</Steps>
+
+## Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `fluid login` | Authenticate with your Fluid account |
+| `fluid logout` | Clear stored authentication credentials |
+| `fluid whoami` | Display the currently connected company |
+| `fluid switch` | Interactively switch between companies |
+| `fluid switch -c <subdomain>` | Switch directly to a specific company |
+| `fluid theme init` | Initialize a new theme project structure |
+| `fluid theme pull` | Pull the current theme from Fluid to local |
+| `fluid theme pull --nodelete` | Pull without removing extra local files |
+| `fluid theme push` | Push local changes to the existing Fluid theme |
+| `fluid theme push --unpublished` | Push as a new draft theme |
+| `fluid theme push --nodelete` | Push without deleting extra server files |
+| `fluid theme dev` | Start a live-reload local development server |

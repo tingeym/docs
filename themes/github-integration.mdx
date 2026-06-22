@@ -1,0 +1,110 @@
+---
+title: "Sync Fluid Themes with GitHub Repositories"
+sidebarTitle: "GitHub Integration"
+description: "Connect GitHub repositories to Fluid themes for two-way sync, Git-based collaborative development, and an auditable commit history of every theme change."
+---
+
+The Fluid GitHub Integration lets you create and manage themes directly from a GitHub repository. Instead of building themes exclusively in the browser-based editor or via the CLI, you can use your existing Git workflow — branches, pull requests, code review — and keep Fluid automatically in sync. Every publish action in Fluid creates a commit in your repository, and every push to your connected branch updates the theme in Fluid. The result is a clean, auditable history of every change to your theme code.
+
+## How It Works
+
+Connecting a GitHub repository to Fluid is straightforward:
+
+1. You authorize the Fluid GitHub App and select which repositories it can access.
+2. You choose a repository and a branch.
+3. Fluid immediately creates a **new theme** in an **Importing** state and downloads all files from that branch in the background.
+4. Once the import is complete, the theme becomes available for editing, preview, and publishing.
+
+Changes flow in both directions: publishing a template in Fluid creates a GitHub commit, and pushing commits to the connected branch updates the theme files in Fluid. Each GitHub connection creates a separate, independent theme — connecting two branches from the same repo produces two separate themes.
+
+## Connecting GitHub
+
+<Steps>
+  <Step title='Click "Connect to GitHub"'>
+    Navigate to the **Themes** page in your Fluid admin panel and click **Connect to GitHub**. This opens a GitHub authorization popup.
+
+    - If the Fluid GitHub App is not yet installed on your account or organization, GitHub will prompt you to install it.
+    - If the app is already installed, you can select additional repositories to grant access to.
+  </Step>
+  <Step title="Install or authorize the Fluid GitHub App">
+    In the popup window:
+
+    1. Choose your GitHub account or the organization that owns the repository.
+    2. Select which repositories Fluid is allowed to access. You can limit access to specific repositories rather than granting blanket access.
+    3. Confirm the installation or authorization.
+
+    You can return to GitHub at any time to modify repository access permissions.
+  </Step>
+  <Step title="Select your repository and branch">
+    After authorization, Fluid displays a repository and branch selector:
+
+    1. Choose the repository containing your theme code.
+    2. Choose the branch you want to connect (e.g., `main`, `production`, or a feature branch).
+    3. Confirm your selection.
+
+    Fluid immediately creates a new theme and begins importing files from that branch.
+  </Step>
+</Steps>
+
+## Theme Importing
+
+After you confirm the connection, a new theme appears in your Themes list with the status **Importing**. Fluid downloads all files from the selected branch in the background — you don't need to stay on the page.
+
+Once the import is complete:
+
+- The theme status changes to **Active** (or **Draft** if no templates have been published yet).
+- All template files, assets, sections, and configuration from the branch are available in the theme editor.
+- The theme is ready to preview, customize, and publish.
+
+<Note>
+  Large repositories with many assets may take a few minutes to import. Refresh the Themes page to check the current status.
+</Note>
+
+## Publishing Changes
+
+When you publish a template inside the Fluid theme editor:
+
+- Fluid creates a **GitHub commit** on the connected branch containing the updated file.
+- The commit appears in your repository's history with an attribution indicating it originated from a Fluid publish action.
+- Your team can see every publish event in the GitHub commit log, giving you a full audit trail.
+
+## Deleting Files
+
+When you delete a template file or asset inside the Fluid editor:
+
+- Fluid creates a **GitHub commit** that removes the corresponding file from the repository.
+- The deletion appears in the GitHub commit history just like any other commit.
+- The file is removed from both Fluid and the repository branch simultaneously.
+
+## Syncing from GitHub
+
+When you (or a teammate) push commits to the connected branch:
+
+- Fluid detects the changes and updates only the files that changed.
+- Deleted files are removed from the theme.
+- Renamed files are handled correctly.
+- Unchanged files are not touched, keeping sync fast even for large themes.
+
+<Tip>
+  Use feature branches for experimental theme changes. Connect the feature branch to a separate Fluid theme, test your changes in Fluid's preview mode, then merge the branch to your main branch once approved. The main branch theme stays clean until the merge.
+</Tip>
+
+## Multiple GitHub Connections
+
+You can connect as many repositories and branches as your workflow requires. There is no limit on the number of GitHub connections per company. Each connection creates a **separate, independent theme** in Fluid:
+
+- Connect `main` → creates Theme A
+- Connect `staging` → creates Theme B
+- Connect a separate repository → creates Theme C
+
+Only one theme can be published (active) at a time, but you can preview and develop all connected themes simultaneously.
+
+## Summary
+
+| Action | What Happens in GitHub |
+|--------|----------------------|
+| Connect a repository | Files are imported from the selected branch |
+| Publish a template in Fluid | A commit is created on the connected branch |
+| Delete a file in Fluid | A commit is created removing the file from the branch |
+| Push to the connected branch | Changed files are updated in the Fluid theme |
+| Disconnect a repository | The theme remains in Fluid; the connection is removed |

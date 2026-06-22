@@ -1,0 +1,402 @@
+---
+title: "Schema Components for Dynamic Theme Sections"
+sidebarTitle: "Schema Components"
+description: "Use Fluid's JSON schema system to build dynamic, customizable theme sections with settings, blocks, presets, and resource selectors for your storefront."
+---
+
+Fluid's schema system is how you turn static Liquid templates into dynamic, configurable sections that merchants can customize through the visual editor — no code required on their end. Every section can declare a set of typed settings (text inputs, color pickers, image selectors, product pickers, and more) alongside repeatable blocks that users can add, reorder, and remove. This guide explains the three-layer architecture, every available setting type, block definitions, option groups, and resource selectors — with production-ready examples throughout.
+
+## Three-Layer Architecture
+
+Before writing a schema, understand how the three layers interact at render time:
+
+```
+1. Layout  (layout/theme.liquid)
+   └── Wraps every page with <html>, <head>, <body>
+   └── Includes global sections: navbar, footer
+   └── Injects template output via {{ content_for_layout }}
+
+2. Template  (e.g., home_page/default/index.liquid)
+   └── Calls specific sections with {% section 'name', id: 'name' %}
+   └── Has its own {% schema %} listing available sections
+
+3. Section  (e.g., sections/hero_section/index.liquid)
+   └── Renders HTML using {{ section.settings.* }} and block loops
+   └── Declares its configurable surface in a {% schema %} block
+   └── Has its own styles.css
+```
+
+The layout never knows about section schemas. Templates declare which sections to include. Sections own their own schema and rendering logic. This separation means you can reuse the same section across multiple templates, each with its own independently stored settings.
+
+### Real Example: Template Wiring
+
+```liquid
+{# home_page/default/index.liquid #}
+{% section 'hero_section',       id: 'hero_section' %}
+{% section 'featured_products',  id: 'featured_products' %}
+{% section 'testimonials',       id: 'testimonials' %}
+
+{% schema %}
+{
+  "name": "Home Page",
+  "sections": {
+    "hero_section":      { "type": "hero_section" },
+    "featured_products": { "type": "featured_products" },
+    "testimonials":      { "type": "testimonials" }
+  }
+}
+{% endschema %}
+```
+
+## Settings Types
+
+Settings are individual form fields that control a section's appearance or behavior. Every setting requires a `type`, `id`, and `label`. Most also accept a `default` value and an optional `info` string displayed as help text.
+
+| Type | Description |
+|------|-------------|
+| `text` | Single-line text input — headings, labels, short strings |
+| `plaintext` | Single-line plain text with no rich-text formatting — SKUs, codes |
+| `textarea` | Multi-line text input — descriptions, long content |
+| `richtext` | Rich text editor with bold, italic, links, and lists |
+| `html` | Raw HTML code editor for custom markup |
+| `url` | URL input with validation |
+| `range` | Numeric slider — requires `min`, `max`, `step`, and optionally `unit` |
+| `select` | Dropdown menu — requires an `options` array |
+| `radio` | Radio button group — requires an `options` array |
+| `checkbox` | Boolean toggle — stores `true` or `false` |
+| `color` | Solid color picker |
+| `color_background` | Color picker that also supports CSS gradients |
+| `font_picker` | Font family selector with live preview |
+| `image_picker` | Image upload or select from media library — stores a URL string |
+| `video_picker` | Video upload or select from media library — stores a URL string |
+| `media_picker` | Image **or** video selector — stores a media **object**, not a plain URL |
+| `product` | Select a single product — stores a numeric product ID |
+| `collection` | Select a single collection — stores a numeric ID |
+| `category` | Select a single category — stores a numeric ID |
+| `posts` | Select a single blog post — stores a numeric ID |
+| `enrollment_pack` | Select a single enrollment pack — stores a numeric ID |
+| `enrollment` | Select a single enrollment — stores a numeric ID |
+| `product_list` | Select multiple products — stores an array of IDs |
+| `collections_list` | Select multiple collections — stores an array of IDs |
+| `category_list` | Select multiple categories — stores an array of IDs |
+| `posts_list` | Select multiple blog posts — stores an array of IDs |
+| `text_alignment` | Text alignment picker — stores `"left"`, `"center"`, or `"right"` |
+| `link_list` | Select a navigation menu — stores a menu object with `title` and `menu_items` |
+| `header` | Non-input organizer — creates a collapsible group in the editor, stores nothing |
+
+<Note>
+  The `color_background` type supports gradients. When you use it, always apply the value with the CSS `background` property rather than `background-color`, otherwise gradients will not render:
+  ```html
+  <!-- ✅ Correct — works with both solid colors and gradients -->
+  <div style="background: {{ section.settings.background_color }}">
+
+  <!-- ❌ Wrong — gradients silently fail -->
+  <div style="background-color: {{ section.settings.background_color }}">
+  ```
+</Note>
+
+## Section Schema Example
+
+The following schema demonstrates a fully configured hero section with settings covering text, color, a range slider, a checkbox, and an image picker:
+
+```json
+{
+  "name": "Hero Section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Welcome to Our Store"
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Subtitle",
+      "default": "Discover amazing products"
+    },
+    {
+      "type": "header",
+      "content": "Style"
+    },
+    {
+      "type": "color_background",
+      "id": "background_color",
+      "label": "Background Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "padding",
+      "label": "Section Padding",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "checkbox",
+      "id": "show_button",
+      "label": "Show Call-to-Action Button",
+      "default": true
+    },
+    {
+      "type": "image_picker",
+      "id": "background_image",
+      "label": "Background Image"
+    }
+  ]
+}
+```
+
+Access these values in your Liquid template via `{{ section.settings.<id> }}`:
+
+```liquid
+<section class="hero"
+         style="background: {{ section.settings.background_color }};
+                padding: {{ section.settings.padding }}px 0;">
+  {% if section.settings.background_image %}
+    <img src="{{ section.settings.background_image | img_url: '1920x1080' }}"
+         class="hero-bg-image" alt="">
+  {% endif %}
+
+  <div class="hero-content">
+    <h1>{{ section.settings.heading }}</h1>
+    <p>{{ section.settings.subtitle }}</p>
+
+    {% if section.settings.show_button %}
+      <a href="#" class="btn btn-primary">Shop Now</a>
+    {% endif %}
+  </div>
+</section>
+```
+
+## Blocks
+
+Blocks are repeatable content units that users can add, remove, and drag to reorder inside a section. Define them in the `blocks` array alongside `settings`. Each block type has its own `settings` array and an optional `limit`.
+
+```json
+{
+  "name": "Testimonials Section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "section_title",
+      "label": "Section Title",
+      "default": "What Our Customers Say"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "testimonial",
+      "name": "Customer Testimonial",
+      "limit": 10,
+      "settings": [
+        {
+          "type": "text",
+          "id": "customer_name",
+          "label": "Customer Name",
+          "default": ""
+        },
+        {
+          "type": "textarea",
+          "id": "testimonial_text",
+          "label": "Testimonial",
+          "default": ""
+        },
+        {
+          "type": "image_picker",
+          "id": "customer_photo",
+          "label": "Customer Photo",
+          "default": ""
+        },
+        {
+          "type": "range",
+          "id": "star_rating",
+          "label": "Star Rating",
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "default": 5
+        }
+      ]
+    }
+  ]
+}
+```
+
+Render blocks in your section template:
+
+```liquid
+<div class="testimonials">
+  <h2>{{ section.settings.section_title }}</h2>
+
+  {% for block in section.blocks %}
+    <div class="testimonial"
+         data-fluid-section-block-id="{{ block.id }}"
+         data-fluid-section-block-type="{{ block.type }}">
+      {% case block.type %}
+        {% when 'testimonial' %}
+          {% if block.settings.customer_photo %}
+            <img src="{{ block.settings.customer_photo }}" alt="{{ block.settings.customer_name }}">
+          {% endif %}
+          <blockquote>{{ block.settings.testimonial_text }}</blockquote>
+          <cite>{{ block.settings.customer_name }}</cite>
+      {% endcase %}
+    </div>
+  {% endfor %}
+</div>
+```
+
+## Option Groups
+
+When the same set of options appears across multiple sections or blocks, define them once in `config/settings_schema.json` as a named option group and reference that group by its ID string instead of repeating the array inline.
+
+**Without option groups** — options are duplicated on every setting that needs them:
+
+```json
+{
+  "type": "select",
+  "id": "tagline_font_size",
+  "label": "Tagline Font Size",
+  "options": [
+    { "label": "XS",   "value": "text-xs" },
+    { "label": "SM",   "value": "text-sm" },
+    { "label": "Base", "value": "text-base" },
+    { "label": "LG",   "value": "text-lg" }
+  ],
+  "default": "text-base"
+}
+```
+
+**With option groups** — define once in `settings_schema.json`, reference by ID string:
+
+```json
+{
+  "type": "select",
+  "id": "tagline_font_size",
+  "label": "Tagline Font Size",
+  "options": "font_sizes",
+  "default": "text-base"
+}
+```
+
+In `config/settings_schema.json`, each entry that contributes to the group uses an `option_group` key:
+
+```json
+[
+  {
+    "name": "typography",
+    "settings": [
+      {
+        "type": "range",
+        "id": "text_xs",
+        "label": "Extra Small Font Size",
+        "min": 1, "max": 100, "step": 1, "default": 12,
+        "option_group": { "id": "font_sizes", "label": "XS", "value": "text-xs" }
+      },
+      {
+        "type": "range",
+        "id": "text_sm",
+        "label": "Small Font Size",
+        "min": 1, "max": 100, "step": 1, "default": 14,
+        "option_group": { "id": "font_sizes", "label": "SM", "value": "text-sm" }
+      },
+      {
+        "type": "range",
+        "id": "text_base",
+        "label": "Base Font Size",
+        "min": 1, "max": 100, "step": 1, "default": 16,
+        "option_group": { "id": "font_sizes", "label": "Base", "value": "text-base" }
+      }
+    ]
+  }
+]
+```
+
+The `options` field on any `select`, `font_picker`, or `radio` setting accepts either an inline array or a string matching an `option_group.id`. Both are equivalent at render time.
+
+## Resource Selectors
+
+Resource selectors let content editors hand-pick specific products, collections, categories, posts, or enrollment packs without writing any code. The setting stores the resource's numeric ID; you look it up in your template using Fluid's global variables.
+
+### Collection Selector Example
+
+Use this pattern to let editors choose a collection and render a filtered shop link:
+
+```json
+{
+  "type": "collection",
+  "id": "featured_collection",
+  "label": "Featured Collection"
+}
+```
+
+```liquid
+{% assign target_name = section.settings.featured_collection_title | downcase | strip %}
+{% for c in collections %}
+  {% if c.title | downcase | strip == target_name %}
+    <a href="{{ company.shop_page_url }}?collection={{ c.id }}" class="collection-cta">
+      Shop {{ c.title }}
+    </a>
+    {% for product in c.products limit: 4 %}
+      <div class="product-card">
+        <img src="{{ product.images.first.src }}" alt="{{ product.title }}">
+        <p>{{ product.title }}</p>
+        <p>{{ product.price | money }}</p>
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endfor %}
+```
+
+### Product List Selector Example
+
+Use `product_list` when editors should hand-pick a set of featured items:
+
+```json
+{
+  "type": "product_list",
+  "id": "featured_products",
+  "label": "Featured Products",
+  "limit": 8
+}
+```
+
+```liquid
+{% if section.settings.featured_products.size > 0 %}
+  {% for product_id in section.settings.featured_products %}
+    {% for p in products %}
+      {% if p.id == product_id %}
+        <div class="featured-product">
+          <a href="{{ p.url }}">
+            <img src="{{ p.images.first.src | img_url: '400x400' }}" alt="{{ p.title }}">
+            <h3>{{ p.title }}</h3>
+            <p>{{ p.price | money }}</p>
+          </a>
+        </div>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+```
+
+## Schema Backward Compatibility
+
+When you update a section schema after it has been used in production templates, follow these rules to avoid breaking existing content:
+
+| Change | Safe? | Notes |
+|--------|-------|-------|
+| Add a new setting | ✅ Safe | Existing templates get the schema default automatically |
+| Remove a setting | ✅ Safe | Old stored data is preserved in the database but silently ignored |
+| Change a setting's `id` | ❌ Breaking | Fluid looks up stored values by ID — renaming an ID loses all saved data for that field |
+| Change a setting's `type` | ❌ Breaking | Stored data format may be incompatible with the new type |
+
+<Warning>
+  Never rename a setting's `id` in a deployed schema. If you need to rename it, create a new setting with the new ID, migrate existing content manually, and remove the old setting in a follow-up release.
+</Warning>

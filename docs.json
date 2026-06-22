@@ -1,0 +1,138 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Fluid",
+  "theme": "luma",
+  "logo": {
+    "light": "https://media.brand.dev/76c47a37-55b8-4d28-bdee-fc4c4819355e.svg",
+    "dark": "https://media.brand.dev/76c47a37-55b8-4d28-bdee-fc4c4819355e.svg"
+  },
+  "colors": {
+    "primary": "#2464ec",
+    "light": "#0c0c3c"
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Sign Up",
+      "href": "https://www.fluid.app"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "guides/quickstart",
+              "guides/authentication"
+            ]
+          },
+          {
+            "group": "Commerce",
+            "pages": [
+              "guides/headless-commerce",
+              "guides/shopping-cart",
+              "guides/payment-processing",
+              "guides/inventory-management",
+              "guides/international-support"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "guides/webhooks",
+              "guides/droplet-subscription-webhooks"
+            ]
+          },
+          {
+            "group": "Droplets",
+            "pages": [
+              "guides/droplets",
+              "guides/drop-zones"
+            ]
+          },
+          {
+            "group": "Digital Assets",
+            "pages": [
+              "guides/dam-picker-sdk",
+              "guides/dam-upload-endpoints"
+            ]
+          },
+          {
+            "group": "Marketing & CRM",
+            "pages": [
+              "guides/targeted-marketing",
+              "guides/custom-catch-ups",
+              "guides/mobile-widgets"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Themes",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "themes/overview",
+              "themes/developer-guide",
+              "themes/mysite-themes"
+            ]
+          },
+          {
+            "group": "Building Themes",
+            "pages": [
+              "themes/schema-components",
+              "themes/theme-variables",
+              "themes/cli"
+            ]
+          },
+          {
+            "group": "Publishing",
+            "pages": [
+              "themes/github-integration",
+              "themes/marketplace"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDKs",
+        "groups": [
+          {
+            "group": "FairShare SDK",
+            "pages": [
+              "sdk/fairshare/overview",
+              "sdk/fairshare/installation",
+              "sdk/fairshare/javascript-api",
+              "sdk/fairshare/components"
+            ]
+          },
+          {
+            "group": "Files SDK",
+            "pages": [
+              "sdk/files/overview",
+              "sdk/files/configuration",
+              "sdk/files/frameworks"
+            ]
+          },
+          {
+            "group": "Mobile SDK",
+            "pages": [
+              "sdk/mobile"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "markdown": {
+    "schema": true
+  },
+  "api": {
+    "url": "full"
+  }
+}

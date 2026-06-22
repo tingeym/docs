@@ -1,0 +1,155 @@
+{
+  "projectType": "saas",
+  "projectName": "Fluid",
+  "projectDescription": "Fluid is a we-commerce platform for direct sales organizations, providing APIs, SDKs, and tools for building custom storefronts, managing enrollments, processing payments, and integrating third-party services.",
+  "theme": "luma",
+  "primaryColor": "#2464ec",
+  "lightColor": "#0c0c3c",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "guides/quickstart",
+              "guides/authentication"
+            ]
+          },
+          {
+            "group": "Commerce",
+            "pages": [
+              "guides/headless-commerce",
+              "guides/shopping-cart",
+              "guides/payment-processing",
+              "guides/inventory-management",
+              "guides/international-support"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "guides/webhooks",
+              "guides/droplet-subscription-webhooks"
+            ]
+          },
+          {
+            "group": "Droplets",
+            "pages": [
+              "guides/droplets",
+              "guides/drop-zones"
+            ]
+          },
+          {
+            "group": "Digital Assets",
+            "pages": [
+              "guides/dam-picker-sdk",
+              "guides/dam-upload-endpoints"
+            ]
+          },
+          {
+            "group": "Marketing & CRM",
+            "pages": [
+              "guides/targeted-marketing",
+              "guides/custom-catch-ups",
+              "guides/mobile-widgets"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Themes",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "themes/overview",
+              "themes/developer-guide",
+              "themes/mysite-themes"
+            ]
+          },
+          {
+            "group": "Building Themes",
+            "pages": [
+              "themes/schema-components",
+              "themes/theme-variables",
+              "themes/cli"
+            ]
+          },
+          {
+            "group": "Publishing",
+            "pages": [
+              "themes/github-integration",
+              "themes/marketplace"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDKs",
+        "groups": [
+          {
+            "group": "FairShare SDK",
+            "pages": [
+              "sdk/fairshare/overview",
+              "sdk/fairshare/installation",
+              "sdk/fairshare/javascript-api",
+              "sdk/fairshare/components"
+            ]
+          },
+          {
+            "group": "Files SDK",
+            "pages": [
+              "sdk/files/overview",
+              "sdk/files/configuration",
+              "sdk/files/frameworks"
+            ]
+          },
+          {
+            "group": "Mobile SDK",
+            "pages": [
+              "sdk/mobile"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "We-Commerce platform for direct sales and MLM organizations",
+    "Fluid Connect: bi-directional sync with Exigo, ByDesign, Pillars, InfoTrax, Shopify",
+    "Fluid Payments: global payment aggregator supporting 300+ APMs in 100+ countries",
+    "Fair Share SDK: multi-domain affiliate attribution using cookies, fingerprints, and routes",
+    "We-Commerce Checkout: one-page checkout with tax, shipping, inventory, and discounts",
+    "Fluid Login: unified authentication with SSO, MFA, magic links, and social providers",
+    "Droplet Marketplace: single-click third-party app installs",
+    "App Builder: custom mobile and desktop apps via drag-and-drop",
+    "Website Editor: Liquid-powered theme system with GitHub integration",
+    "Digital Asset Management (DAM) with AI image tools",
+    "Fluid Orchestration: intelligent payment routing across multiple PSPs",
+    "International commerce support for 9+ markets"
+  ],
+  "publicApiSurface": [
+    "POST/GET /api/company/webhooks",
+    "POST /api/v2025-06/partner_tokens",
+    "POST /api/v2025-06/tokens/public",
+    "GET /api/companies",
+    "GET /api/company/v1/products",
+    "POST /api/company/carts",
+    "POST /api/droplets",
+    "POST /api/droplet_installations/exchange",
+    "POST /api/fluid_orchestration/configurations",
+    "POST/GET /api/company/custom_catch_ups",
+    "GET /api/subscriptions",
+    "window.FairShareSDK.addCartItems()",
+    "window.FairShareSDK.checkout()",
+    "window.FairShareSDK.trackFairshareEvent()",
+    "window.FairShareSDK.lookupAffiliate()",
+    "DamPicker (npm: @fluid-app/dam-picker)",
+    "fluid theme pull / push / dev (Themes CLI)",
+    "fluid login / switch (Themes CLI)"
+  ]
+}

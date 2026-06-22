@@ -1,0 +1,350 @@
+---
+title: "Sell Globally: Fluid's International Commerce Support"
+sidebarTitle: "International"
+description: "Fluid supports 9+ international markets with multi-currency pricing, localized payment methods, automated tax compliance, and multi-language checkout."
+---
+
+Fluid provides a complete global commerce infrastructure so your direct sales organization can operate across international markets without building country-specific payment, tax, and compliance logic yourself. Each supported market comes with localized payment methods, automated tax calculation, address validation, multi-language checkout, and a dynamic legal agreement system that meets regional consumer protection requirements. This guide covers the technical infrastructure and a market-by-market breakdown of supported capabilities.
+
+## Technical Infrastructure
+
+Fluid's international platform is built on five core pillars:
+
+<CardGroup cols={2}>
+  <Card title="Multi-Gateway Payment Architecture" icon="credit-card">
+    Fluid routes payments through regional gateways (Citcon, FluidPayments, PPRO) to maximize acceptance rates and support locally preferred payment methods in each market.
+  </Card>
+  <Card title="Address Validation" icon="map-pin">
+    Real-time address validation and formatting is applied per country, including country-specific postal code formats, province/state dropdowns, and neighborhood fields.
+  </Card>
+  <Card title="Automated Tax Calculation" icon="calculator">
+    Fluid calculates the correct tax rate for every transaction — from US state sales tax to EU VAT — and keeps compliance rules up to date. Third-party providers such as Avalara are also supported.
+  </Card>
+  <Card title="Dynamic Legal Agreement System" icon="file-text">
+    Checkout and enrollment agreements are served dynamically based on the customer's market, ensuring the correct consumer protection disclosures appear for each jurisdiction.
+  </Card>
+  <Card title="Multi-Language Localization" icon="globe">
+    The checkout flow and mobile app support multiple languages per market. The localization system is designed to scale as new languages are added.
+  </Card>
+</CardGroup>
+
+## Supported Markets
+
+<Tabs>
+  <Tab title="🇺🇸 United States">
+    ### Currency & Payments
+
+    **Currency:** USD
+
+    **Payment methods:** Visa, Mastercard, American Express, Discover, Apple Pay, PayPal, Venmo, Klarna (Buy Now Pay Later)
+
+    **Gateway:** Citcon
+
+    ### Address Format
+
+    Address Line 1 (required) · Address Line 2 (optional) · City · State (dropdown, all US states) · ZIP Code
+
+    ### Tax Compliance
+
+    Fluid calculates automated state sales tax with real-time rates by jurisdiction. Third-party tax providers are also supported. All calculations include full compliance with state tax reporting requirements.
+
+    ### Languages
+
+    English · Spanish · Chinese (Mandarin)
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | Phone number | Required for communications |
+    | Bank Account Number | For direct deposit payouts |
+    | Bank Routing Number | 9-digit, validated |
+    | SSN or EIN | Format: XXX-XX-XXXX (SSN) or XX-XXXXXXX (EIN) |
+  </Tab>
+
+  <Tab title="🇨🇦 Canada">
+    ### Currency & Payments
+
+    **Currency:** CAD
+
+    **Payment methods:** Visa, Mastercard, American Express, PayPal, Venmo, Alipay, Klarna, WeChat Pay
+
+    **Gateways:** FluidPayments (primary) · Citcon (for APMs)
+
+    ### Address Format
+
+    Address Line 1 (required) · Address Line 2 (optional) · City · Province (dropdown, all provinces and territories) · Postal Code
+
+    ### Tax Compliance
+
+    **Federal GST:** 5% (all provinces/territories)
+
+    **Provincial variations:**
+    - HST provinces: Ontario, Nova Scotia, New Brunswick, Newfoundland & Labrador, PEI
+    - GST + PST provinces: British Columbia, Saskatchewan, Manitoba
+    - GST only: Alberta, Northwest Territories, Nunavut, Yukon
+
+    CRA reporting applies at the $30,000 revenue threshold. Avalara integration available.
+
+    ### Languages
+
+    English · French
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | Banking option | Traditional bank OR Interac e-Transfer |
+    | Institution Number | 3-digit bank institution number (traditional bank) |
+    | Transit Number | 5-digit branch transit number (traditional bank) |
+    | Account Number | Typically 7–12 digits (traditional bank) |
+    | Interac e-Transfer Email | Email registered for e-Transfer (alternative) |
+  </Tab>
+
+  <Tab title="🇦🇺 Australia">
+    ### Currency & Payments
+
+    **Currency:** AUD
+
+    **Payment methods:** Visa, Mastercard, American Express, Alipay, WeChat Pay, Klarna
+
+    **Gateway:** Citcon
+
+    ### Address Format
+
+    Address Line 1 (required) · Address Line 2 (optional) · City · State/Territory (dropdown) · Postal Code
+
+    ### Tax Compliance
+
+    **GST:** 10% (Goods and Services Tax)
+
+    GST registration threshold: $75,000 AUD. Prices must include GST or clearly display it. Automatic GST refunds apply on returned items.
+
+    ### Languages
+
+    English · Chinese (Mandarin) · Vietnamese
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | Banking option | BSB + Account Number OR PayID |
+    | BSB Number | 6-digit Bank State Branch number (format: XXX-XXX) |
+    | Account Number | Australian bank account number |
+    | PayID | Email, mobile number, or ABN for instant payments |
+    | ABN | 11-digit Australian Business Number (optional; 47% withholding may apply without it) |
+  </Tab>
+
+  <Tab title="🇵🇭 Philippines">
+    ### Currency & Payments
+
+    **Currency:** PHP (₱)
+
+    **Payment methods:** GCash (primary e-wallet), Visa, Mastercard, American Express, PayMaya, Cash on Delivery, local bank transfers
+
+    **Gateway:** Citcon
+
+    ### Address Format
+
+    Address Line 1 (required) · Address Line 2 (optional) · City/Municipality · Province (dropdown) · Postal Code
+
+    Delivery considerations include geographic zones: Metro Manila, Luzon, Visayas, Mindanao.
+
+    ### Tax Compliance
+
+    **VAT:** 12%
+
+    VAT registration threshold: ₱3 million PHP. Withholding tax of 5–10% applies to commission payments. BIR (Bureau of Internal Revenue) reporting is required.
+
+    ### Languages
+
+    Filipino (Tagalog) · English
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | Banking option | Bank account OR digital wallet (GCash/Maya) |
+    | Bank Code | BPI, BDO, MBTC, or other Philippine bank code |
+    | Bank Account Number | Peso-denominated account |
+    | TIN | 12-digit BIR-issued Tax Identification Number (format: XXX-XXX-XXX-XXX), required |
+    | Mobile number | Prioritized for SMS-first communication |
+  </Tab>
+
+  <Tab title="🇲🇽 Mexico">
+    ### Currency & Payments
+
+    **Currency:** MXN ($)
+
+    **Payment methods:** Visa, Mastercard, American Express, Carnet, SPEI, Banamex, Banorte, OXXO, OXXO Pay
+
+    **Gateways:** Citcon (primary) · PPRO (for SPEI and OXXO Pay)
+
+    ### Address Format
+
+    Address Line 1 (required) · Address Line 2/Colony (optional) · City/Municipality · State (dropdown, all Mexican states) · Postal Code (Código Postal)
+
+    ### Tax Compliance
+
+    **IVA:** 16% (Impuesto al Valor Agregado)
+
+    All commercial transactions require a CFDI (electronic invoice). RFC registration with SAT (Servicio de Administración Tributaria) is mandatory for all brand partners.
+
+    ### Languages
+
+    Spanish (Mexican) · English
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | RFC | 12–13 character Mexican federal taxpayer ID (required) |
+    | Banking option | CLABE (bank transfer) OR digital wallet (SPEI) |
+    | CLABE | 18-digit standardized Mexican bank account number |
+    | Digital wallet | Phone number or wallet ID (e.g., Mercado Pago, Clip) |
+  </Tab>
+
+  <Tab title="🇪🇸 Spain">
+    ### Currency & Payments
+
+    **Currency:** EUR (€)
+
+    **Payment methods:** Visa, Mastercard, American Express, Trustly (bank transfer)
+
+    **Gateway:** Citcon
+
+    ### Address Format
+
+    Address Line 1 (required) · Address Line 2 (optional) · City/Municipality · Province (dropdown, all Spanish provinces and autonomous communities) · Postal Code (Código Postal, 5 digits)
+
+    ### Tax Compliance
+
+    **IVA:** 21% standard rate (reduced rates: 10% food/transport, 4% basic necessities)
+
+    AEAT (Agencia Estatal de Administración Tributaria) compliance is required. NIF/CIF (Número de Identificación Fiscal) is mandatory. Quarterly Modelo 303 and annual Modelo 390 VAT returns are required.
+
+    ### Languages
+
+    Spanish (Castilian) · English
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | DNI or NIE | Spanish National ID or Foreigner ID (format: 8 digits + 1 letter, e.g., 12345678Z) |
+    | IBAN | Spanish bank account (format: ES + 22 digits) |
+
+    14-day EU cooling-off period (derecho de desistimiento) applies. GDPR and LOPDGDD data protection compliance required.
+  </Tab>
+
+  <Tab title="🇩🇪 Germany">
+    ### Currency & Payments
+
+    **Currency:** EUR (€)
+
+    **Payment methods:** Visa, Mastercard, American Express, Trustly (bank transfer)
+
+    **Gateway:** Citcon
+
+    ### Address Format
+
+    Straße und Hausnummer · Adresszusatz (optional) · Ort · Bundesland (dropdown, all federal states) · Postleitzahl (5 digits)
+
+    ### Tax Compliance
+
+    **MwSt. (Mehrwertsteuer):** 19% standard rate (reduced 7% rate for food, books, cultural goods)
+
+    Steueridentifikationsnummer (11-digit tax ID) is mandatory. Umsatzsteuer-ID required for businesses. Advance VAT returns are filed monthly or quarterly depending on revenue. Accounting records must be kept for at least 10 years.
+
+    ### Languages
+
+    German · English
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | Steueridentifikationsnummer | 11-digit German tax identification number (required) |
+    | IBAN | German bank account (format: DE + 20 digits) |
+
+    14-day Widerrufsrecht (right of withdrawal) under EU Consumer Rights Directive applies. GDPR and BDSG compliance required.
+  </Tab>
+
+  <Tab title="🇳🇿 New Zealand">
+    ### Currency & Payments
+
+    **Currency:** NZD ($)
+
+    **Payment methods:** Mastercard, Alipay, WeChat Pay, Klarna
+
+    **Gateway:** Citcon
+
+    ### Address Format
+
+    Address Line 1 (required) · Suburb (optional) · City · Region (optional) · Postcode (4 digits)
+
+    ### Tax Compliance
+
+    **GST:** 15% (Goods and Services Tax)
+
+    GST registration is required when annual turnover exceeds $60,000 NZD. All prices must clearly include GST. IRD Number is mandatory for all brand partners.
+
+    ### Languages
+
+    English
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | IRD Number | 8–9 digit New Zealand tax ID (format: XX-XXX-XXX or XXX-XXX-XXX) |
+    | Bank Account Number | NZ bank account (format: XX-XXXX-XXXXXXX-XXX) |
+    | GST registration | Checkbox required if annual turnover exceeds $60,000 NZD |
+  </Tab>
+
+  <Tab title="🇹🇷 Turkey">
+    ### Currency & Payments
+
+    **Currency:** TRY (₺)
+
+    **Payment methods:** Visa, Mastercard, American Express, local bank transfers, Turkish digital wallets
+
+    **Gateway:** Citcon
+
+    ### Address Format
+
+    Address Line 1 (required) · Mahalle/District (optional) · İl/City · Province (dropdown, all Turkish provinces) · Posta Kodu (5 digits)
+
+    ### Tax Compliance
+
+    **KDV (Katma Değer Vergisi):** 20% standard rate (reduced rates: 10% basic food, 1% essential products)
+
+    GIB (Gelir İdaresi Başkanlığı) compliance is required. Vergi Kimlik Numarası (10-digit VKN) is required for businesses. Monthly VAT returns are mandatory for registered businesses. E-fatura (electronic invoice) is required for B2B transactions.
+
+    ### Languages
+
+    Turkish · English
+
+    ### Brand Partner Enrollment Requirements
+
+    | Field | Notes |
+    |---|---|
+    | Date of Birth | Must be 18+ |
+    | T.C. Kimlik Numarası | 11-digit Turkish National ID (required) |
+    | IBAN | Turkish bank account (format: TR + 24 digits) |
+
+    **Legal notes:** A 14-day right of withdrawal applies for consumers; a 30-day right of withdrawal applies for direct sellers. KVKK (Law No. 6698) data protection compliance is required. Transparent income disclosure and anti-pyramid scheme provisions are mandated by the Turkish Direct Selling Regulation.
+  </Tab>
+</Tabs>
+
+<Note>
+  For implementation guidance, integration requirements, or to discuss expansion to markets not listed here, contact Fluid's international commerce team. Market capabilities and requirements are updated as regulations change.
+</Note>

@@ -1,0 +1,119 @@
+---
+title: "Segment Customers for Targeted Marketing Campaigns"
+sidebarTitle: "Targeted Marketing"
+description: "Use Fluid's customer data APIs to segment your customer base by purchase history, behavior, and demographics, then power personalized marketing campaigns."
+---
+
+Fluid's API gives you direct access to the customer data that powers your direct sales organization. By retrieving that data and building segments from it, you can craft marketing campaigns that speak to each customer's individual behavior and needs — whether that means reactivating lapsed buyers, recommending products based on browsing history, or tailoring promotions to a specific geography. This guide walks you through the building blocks: pulling customer data, defining segments, and using those segments to drive action.
+
+## Step 1: Access Your Customer Data
+
+Use the `/customers` endpoint to retrieve your company's customer list. Pass your **company token** as a Bearer token in the `Authorization` header.
+
+```javascript
+const url = `https://api.fluid.app/v1/companies/${companyId}/customers`;
+
+fetch(url, {
+  headers: {
+    'Authorization': `Bearer ${companyToken}`,
+  },
+})
+  .then(response => response.json())
+  .then(data => {
+    const customers = data.data;
+    // Pass customers to your segmentation logic below
+  })
+  .catch(error => console.error(error));
+```
+
+<Note>
+  Replace `companyId` with your company's ID and `companyToken` with a valid company token. See the [Authentication guide](/guides/authentication) for token details.
+</Note>
+
+## Step 2: Build Customer Segments
+
+Once you have the customer list, apply filters to group customers into segments that match your campaign goals.
+
+### Purchase History
+
+Identify customers who have not purchased within a defined window to build a reactivation audience.
+
+```javascript
+const SIX_MONTHS_AGO = new Date();
+SIX_MONTHS_AGO.setMonth(SIX_MONTHS_AGO.getMonth() - 6);
+
+const inactiveCustomers = customers.filter(customer => {
+  const lastPurchase = new Date(customer.last_purchase_at);
+  return lastPurchase < SIX_MONTHS_AGO;
+});
+```
+
+### Browsing Behavior
+
+Segment users based on products or categories they have viewed to surface relevant recommendations.
+
+```javascript
+const viewedProductId = 'PROD_456';
+
+const interestedCustomers = customers.filter(customer =>
+  customer.viewed_product_ids?.includes(viewedProductId)
+);
+```
+
+### Demographics
+
+Tailor promotions to customers in a specific location or age group.
+
+```javascript
+const localCustomers = customers.filter(customer =>
+  customer.state === 'CA'
+);
+```
+
+## Step 3: Act on Your Segments
+
+Use the unique identifiers from each segment — typically customer IDs — to drive targeted outreach.
+
+### Abandoned Cart Reminders
+
+Loop through customers who added items to their cart but never checked out, and trigger a reminder through your email or messaging provider.
+
+```javascript
+// Identify customers with abandoned carts (replace with your cart-detection logic)
+const abandonedCarts = customers.filter(customer => customer.has_abandoned_cart);
+
+abandonedCarts.forEach(customer => {
+  sendAbandonedCartEmail({
+    to: customer.email,
+    firstName: customer.first_name,
+    cartItems: customer.cart_items,
+  });
+});
+```
+
+<Tip>
+  Combine purchase history and cart data for more precise targeting — for example, send a steeper discount to customers who abandoned a cart *and* haven't purchased in over 90 days.
+</Tip>
+
+## Step 4: Integrate with Your Marketing Tools
+
+Fluid's customer data works alongside the marketing platforms you already use. Export your segments or stream them in real time to power:
+
+<CardGroup cols={2}>
+  <Card title="Personalized Emails" icon="envelope">
+    Pass segment data to your email service provider (ESP) to populate dynamic content blocks with each customer's name, recommended products, or last-viewed category.
+  </Card>
+  <Card title="Push Notifications" icon="bell">
+    Send targeted push notifications through your mobile marketing platform to re-engage specific segments without sending bulk blasts to your entire list.
+  </Card>
+  <Card title="Targeted Ads" icon="bullseye">
+    Export segment IDs to advertising platforms like Meta or Google to build custom audiences and lookalike audiences from your highest-value customers.
+  </Card>
+  <Card title="In-App Experiences" icon="mobile">
+    Use segment membership to personalize the checkout flow, homepage banners, or product recommendations shown to each customer in your branded app.
+  </Card>
+</CardGroup>
+
+<Note>
+  Refer to the Fluid API reference for the full structure of customer data returned by the `/customers` endpoint, including all available fields for segmentation.
+</Note>

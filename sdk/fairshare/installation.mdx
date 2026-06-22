@@ -1,0 +1,189 @@
+---
+title: "Install the FairShare SDK on Your Website Using CDN"
+sidebarTitle: "Installation"
+description: "Install the FairShare SDK with a single script tag, configure data attributes for shop identification and attribution, and customize widget styles."
+---
+
+Installing the FairShare SDK requires nothing more than a single `<script>` tag placed in your HTML. The bundle self-initializes, injects its own styles, and registers all web components automatically—no package manager, no bundler, and no separate CSS import needed.
+
+## CDN Installation (Recommended)
+
+Add the following script tag to your page. Replace `your-shop-id` with your actual Fluid shop identifier:
+
+```html
+<script
+  id="fluid-cdn-script"
+  src="https://assets.fluid.app/scripts/fluid-sdk/latest/web-widgets/index.js"
+  data-fluid-shop="your-shop-id"
+></script>
+```
+
+<Note>
+  The `id="fluid-cdn-script"` attribute and the `data-fluid-shop` attribute are
+  both required. The SDK reads `data-fluid-shop` at startup to identify your
+  store.
+</Note>
+
+## Configuration Options
+
+Control SDK behavior by adding data attributes directly to the script tag:
+
+| Attribute | Required | Description | Default |
+|---|---|---|---|
+| `data-fluid-shop` | Yes | Your Fluid shop identifier | — |
+| `data-debug` | No | Enable debug logging in the browser console | `"false"` |
+| `data-fluid-api-base-url` | No | Custom API endpoint for development or testing | `"https://api.fluid.app"` |
+| `data-pusher-enabled` | No | Enable Pusher for real-time cart synchronization | `"false"` |
+
+### Attribution Override Options
+
+By default, attribution is calculated server-side from the current page URL—you don't need to configure anything for this to work. Use the attributes below only when you need to explicitly override automatic attribution with a specific affiliate.
+
+When multiple override attributes are present, the SDK uses the **first one found** according to this priority order:
+
+| Priority | Attribute | Description |
+|---|---|---|
+| 1 | `data-share-guid` | Attribution share GUID |
+| 2 | `data-fluid-rep-id` | Fluid Rep ID (numeric) |
+| 3 | `data-email` | Email address |
+| 4 | `data-username` | Username |
+| 5 | `data-external-id` | External ID |
+
+## Example Configurations
+
+<Tabs>
+  <Tab title="Basic Setup">
+    The minimum configuration you need to get started:
+
+    ```html
+    <script
+      id="fluid-cdn-script"
+      src="https://assets.fluid.app/scripts/fluid-sdk/latest/web-widgets/index.js"
+      data-fluid-shop="your-shop-id"
+    ></script>
+    ```
+  </Tab>
+  <Tab title="With Real-Time Updates">
+    Enable Pusher to keep the cart synchronized across multiple browser tabs in real time:
+
+    ```html
+    <script
+      id="fluid-cdn-script"
+      src="https://assets.fluid.app/scripts/fluid-sdk/latest/web-widgets/index.js"
+      data-fluid-shop="your-shop-id"
+      data-pusher-enabled="true"
+    ></script>
+    ```
+  </Tab>
+  <Tab title="With Attribution Override">
+    Explicitly assign attribution to a specific affiliate instead of relying on server-side detection:
+
+    ```html
+    <script
+      id="fluid-cdn-script"
+      src="https://assets.fluid.app/scripts/fluid-sdk/latest/web-widgets/index.js"
+      data-fluid-shop="your-shop-id"
+      data-share-guid="your-affiliate-share-guid"
+    ></script>
+    ```
+  </Tab>
+  <Tab title="Development / Testing">
+    Point the SDK to a custom API endpoint and enable verbose console logging during local development:
+
+    ```html
+    <script
+      id="fluid-cdn-script"
+      src="https://assets.fluid.app/scripts/fluid-sdk/latest/web-widgets/index.js"
+      data-fluid-shop="your-shop-id"
+      data-fluid-api-base-url="https://api.your-custom-endpoint.com"
+      data-debug="true"
+    ></script>
+    ```
+  </Tab>
+</Tabs>
+
+## Manual Initialization (Advanced)
+
+In most cases the SDK initializes automatically from the script tag attributes. For advanced scenarios where you need programmatic control, call `initializeFluid` directly:
+
+```javascript
+window.FairShareSDK.initializeFluid({
+  fluidShop: "your-shop-id",
+  debug: true,
+});
+```
+
+<Note>
+  Manual initialization is rarely needed. Use it only when you cannot set data
+  attributes on the script tag at build time, for example in server-rendered
+  environments where the shop ID is determined at runtime.
+</Note>
+
+## Using the SDK After Installation
+
+All SDK functions are available on `window.FairShareSDK` (and `window.FluidCommerceSDK` for backwards compatibility) as soon as the script loads. Use the `DOMContentLoaded` event to safely access them:
+
+```javascript
+window.addEventListener('DOMContentLoaded', () => {
+  // Read the current cart
+  const cart = window.FairShareSDK.getCart();
+
+  // Add an item to the cart
+  window.FairShareSDK.addCartItems(12345, { quantity: 1 });
+
+  // Open the cart drawer
+  window.FairShareSDK.openCart();
+});
+```
+
+## Customizing Styles
+
+Override the default widget appearance using CSS custom properties in your stylesheet:
+
+```css
+:root {
+  --company-color: #3461ff; /* Your primary brand color */
+  --ff-body: "Your Custom Font", sans-serif; /* Your font family */
+}
+```
+
+- `--company-color` controls primary colors, accents, and highlights across all widgets.
+- `--ff-body` sets the font family used throughout the widgets, with a fallback to system fonts.
+
+## Troubleshooting
+
+<Accordion title="Script Not Loading">
+  1. **Check the script URL** — Verify that `https://assets.fluid.app/scripts/fluid-sdk/latest/web-widgets/index.js` is reachable from your browser. Open it directly in a new tab to confirm.
+  2. **Enable debug logging** — Add `data-debug="true"` to the script tag and check the browser console for detailed initialization output.
+  3. **Verify `data-fluid-shop`** — The attribute must be present and set to a valid, non-empty shop identifier.
+</Accordion>
+
+<Accordion title="SDK Functions Not Available">
+  1. **Wait for initialization** — Access SDK functions inside a `DOMContentLoaded` listener rather than inline scripts that may run before the SDK loads:
+
+     ```javascript
+     window.addEventListener('DOMContentLoaded', () => {
+       if (window.FairShareSDK) {
+         // Safe to use SDK here
+       }
+     });
+     ```
+
+  2. **Check script placement** — Place the script tag in `<body>` or immediately before the closing `</body>` tag to ensure the DOM is available when the SDK runs.
+</Accordion>
+
+<Accordion title="Attribution Not Working">
+  1. **Server-side attribution is the default** — Attribution is automatically calculated from URL parameters. If the correct affiliate is already attributed on your backend, no client-side changes are needed.
+  2. **Override only when necessary** — If you do need to force a specific affiliate, add the appropriate override attribute (`data-share-guid`, `data-email`, etc.) and confirm only one method is active. Only the highest-priority attribute is used.
+</Accordion>
+
+## Best Practices
+
+<Tip>
+  Place the script tag immediately before the closing `</body>` tag. This allows
+  the browser to render page content first, improving perceived load performance.
+</Tip>
+
+- **Use the CDN URL in production** — The CDN-hosted bundle is cached globally and always serves the latest release.
+- **Disable debug mode in production** — Set `data-debug="true"` only during development. Debug logging adds overhead and exposes internal state in the browser console.
+- **Don't override attribution unless you have a specific reason** — Server-side attribution handles the vast majority of use cases automatically.

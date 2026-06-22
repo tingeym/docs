@@ -1,0 +1,301 @@
+---
+title: "Build and Verify Fluid Droplet Subscription Webhooks"
+sidebarTitle: "Subscription Webhooks"
+description: "Build a Droplet that registers for subscription lifecycle webhooks, verifies HMAC signatures, and syncs billing dates across a customer's subscriptions."
+---
+
+This guide walks you through building a Droplet that listens for the `subscription_started` event and automatically synchronizes all of a customer's active subscriptions to bill on the same day of the month. Along the way you'll handle the full install handshake, verify HMAC-SHA256 signatures for both lifecycle and business webhooks, exchange the one-time install token for a permanent credential, and call Fluid's subscription API to update billing dates.
+
+---
+
+## Full Integration Flow
+
+<Steps>
+
+### Step 1 — Create the Droplet
+
+Create a Droplet record via the API. Include `settings` in `requested_scopes` so the installation token you receive later has permission to register webhooks (`POST /api/company/webhooks` requires the `developer:update` permission, which lives inside the `settings` scope group).
+
+```bash
+curl -X POST "https://api.fluid.app/api/droplets" \
+  -H "Authorization: Bearer C-YOUR_COMPANY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "droplet": {
+      "name": "Subscription Billing Synchronizer",
+      "embed_url": "https://your-app.com/droplet/subscription-sync",
+      "install_webhook_url": "https://your-app.com/webhooks/droplet/installed",
+      "uninstall_webhook_url": "https://your-app.com/webhooks/droplet/uninstalled",
+      "settings": {
+        "marketplace_page": {
+          "title": "Subscription Billing Synchronizer",
+          "summary": "Synchronizes customer subscription billing dates to the 15th of each month",
+          "logo_url": "https://your-app.com/logo.svg"
+        },
+        "details_page": {
+          "title": "Subscription Billing Synchronizer",
+          "summary": "Keeps all customer subscriptions on the same billing cycle",
+          "logo_url": "https://your-app.com/big-logo.svg",
+          "features": [
+            {
+              "name": "Automatic Synchronization",
+              "summary": "Updates subscription billing dates",
+              "details": "When a new subscription is created, other subscriptions for that customer are updated to bill on the 15th of the month"
+            }
+          ]
+        }
+      },
+      "requested_scopes": ["main", "orders", "settings"]
+    }
+  }'
+```
+
+When Fluid creates the Droplet it generates a `webhook_secret` (prefix `dws_`). This is the HMAC key used to sign every lifecycle webhook sent to your `install_webhook_url` and `uninstall_webhook_url`. Store it securely — you'll need it in the next step.
+
+### Step 2 — Install the Droplet via the Marketplace
+
+Once your Droplet is created, install it against a company:
+
+1. Open the [Droplet Marketplace](https://admin.fluid.app/droplets).
+2. Select your Droplet.
+3. Click **Install Droplet**.
+
+Fluid creates a `DropletInstallation` record and immediately POSTs a signed `droplet_installed` event to your `install_webhook_url`.
+
+### Step 3 — Handle the `droplet_installed` Lifecycle Webhook
+
+Fluid sends the following headers with the lifecycle webhook:
+
+| Header | Description |
+|---|---|
+| `X-Fluid-Shop` | The installing company's `fluid_shop` slug |
+| `X-Fluid-Timestamp` | Unix timestamp in seconds (as a string) |
+| `X-Fluid-Signature` | `HMAC-SHA256(dws_ secret, "{timestamp}.{raw_body}")` as lowercase hex |
+
+Verify the signature before you do anything else. Use `request.raw_post` — re-serializing a parsed body will break the HMAC.
+
+```ruby
+class Webhooks::Droplet::InstalledController < ApplicationController
+  skip_before_action :verify_authenticity_token
+
+  def create
+    raw_body = request.raw_post
+
+    return head :request_timeout unless fresh_timestamp?
+    return head :unauthorized unless valid_signature?(raw_body)
+
+    # Acknowledge fast; enqueue the exchange so a transient DB error
+    # does not consume the single-use exchange_token.
+    Droplet::InstallJob.perform_later(JSON.parse(raw_body))
+    head :ok
+  end
+
+  private
+
+  def valid_signature?(raw_body)
+    timestamp = request.headers["X-Fluid-Timestamp"]
+    provided  = request.headers["X-Fluid-Signature"].to_s
+    secret    = ENV.fetch("FLUID_DROPLET_WEBHOOK_SECRET") # dws_ value
+
+    expected = OpenSSL::HMAC.hexdigest("SHA256", secret, "#{timestamp}.#{raw_body}")
+    ActiveSupport::SecurityUtils.secure_compare(expected, provided)
+  end
+
+  def fresh_timestamp?
+    timestamp = request.headers["X-Fluid-Timestamp"].to_i
+    (Time.now.to_i - timestamp).abs <= 300
+  end
+end
+```
+
+The `payload.company.credentials.exchange_token` field in the body (prefix `dex_`) is the single-use token you'll exchange in the next step. It expires in 10 minutes.
+
+### Step 4 — Exchange the One-Time Token
+
+Call the exchange endpoint from your background job. The token is single-use, so make your handler idempotent: create the tenant row first, then short-circuit if tokens were already written by a prior attempt.
+
+```bash
+curl -X POST "https://api.fluid.app/api/droplet_installations/exchange" \
+  -H "Content-Type: application/json" \
+  -d '{"exchange_token": "dex_a1b2c3d4e5f6..."}'
+```
+
+A successful response returns:
+
+```json
+{
+  "droplet_installation": {
+    "droplet_installation_uuid": "dri_...",
+    "droplet_uuid": "drp_...",
+    "fluid_company_id": 42,
+    "fluid_shop": "acme"
+  },
+  "credentials": {
+    "authentication_token": "dit_...",
+    "webhook_verification_token": "wvt_...",
+    "issued_at": "2026-05-18T14:30:45Z",
+    "token_type": "bearer"
+  }
+}
+```
+
+Store both tokens per company in your database:
+
+- **`authentication_token`** (`dit_…`) — use this as `Authorization: Bearer dit_…` for every subsequent Fluid API call on behalf of this company.
+- **`webhook_verification_token`** (`wvt_…`) — use this as the HMAC key when verifying business webhooks (Step 6).
+
+### Step 5 — Register the Subscription Webhook
+
+With the installation token in hand, register a webhook for the `subscription_started` event under this company:
+
+```bash
+curl -X POST "https://api.fluid.app/api/company/webhooks" \
+  -H "Authorization: Bearer dit_YOUR_INSTALLATION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhook": {
+      "resource": "subscription",
+      "event": "started",
+      "url": "https://your-app.com/webhooks/subscription-sync",
+      "http_method": "post"
+    }
+  }'
+```
+
+<Note>
+Because this webhook is owned by your Droplet installation, Fluid signs every delivery with the installation's `webhook_verification_token` (`wvt_…`) — not the `auth_token` field. Always use the `wvt_…` value in your verifier and omit `auth_token` from this request.
+</Note>
+
+### Step 6 — Receive and Verify the `subscription_started` Webhook
+
+Every business webhook delivery includes these headers:
+
+| Header | Description |
+|---|---|
+| `X-Fluid-Shop` | The company's `fluid_shop` slug |
+| `X-Fluid-Timestamp` | Unix timestamp in seconds (as a string) |
+| `X-Fluid-Signature` | `HMAC-SHA256(wvt_ token, "{timestamp}.{raw_body}")` as lowercase hex |
+| `AUTH_TOKEN` | Same signing key value — sent for backward compatibility; verify the signature instead |
+
+Look up the `wvt_…` value by matching `X-Fluid-Shop` against your stored tenants, then verify:
+
+```ruby
+class Webhooks::SubscriptionSyncController < ApplicationController
+  skip_before_action :verify_authenticity_token
+
+  def create
+    raw_body = request.raw_post
+
+    return head :request_timeout unless fresh_timestamp?
+    return head :unauthorized unless valid_signature?(raw_body, signing_key)
+
+    payload      = JSON.parse(raw_body)
+    subscription = payload.dig("payload", "subscription")
+    return head :ok unless subscription
+
+    SubscriptionSyncJob.perform_later(payload)
+    head :ok
+  end
+
+  private
+
+  def signing_key
+    shop = request.headers["X-Fluid-Shop"]
+    return nil if shop.blank?
+    DropletTenant.find_by(fluid_shop: shop)&.webhook_verification_token
+  end
+
+  def valid_signature?(raw_body, secret)
+    return false if secret.nil?
+    timestamp = request.headers["X-Fluid-Timestamp"]
+    provided  = request.headers["X-Fluid-Signature"].to_s
+    expected  = OpenSSL::HMAC.hexdigest("SHA256", secret, "#{timestamp}.#{raw_body}")
+    ActiveSupport::SecurityUtils.secure_compare(expected, provided)
+  end
+
+  def fresh_timestamp?
+    (Time.now.to_i - request.headers["X-Fluid-Timestamp"].to_i).abs <= 300
+  end
+end
+```
+
+### Step 7 — Call Fluid Back to Sync Billing Dates
+
+List the customer's active subscriptions, then update each one's `next_bill_date`. The list endpoint omits `address` and `payment_method`, so re-fetch each subscription individually before patching.
+
+**List active subscriptions:**
+
+```http
+GET https://api.fluid.app/api/subscriptions?customer_id=789&status=active
+Authorization: Bearer dit_YOUR_INSTALLATION_TOKEN
+```
+
+**Fetch a single subscription (to get full associations):**
+
+```http
+GET https://api.fluid.app/api/subscriptions/sb_AbCdEf...
+Authorization: Bearer dit_YOUR_INSTALLATION_TOKEN
+```
+
+**Update the billing date:**
+
+```http
+PATCH https://api.fluid.app/api/subscriptions/sb_AbCdEf...
+Authorization: Bearer dit_YOUR_INSTALLATION_TOKEN
+Content-Type: application/json
+
+{
+  "subscription": {
+    "subscription_plan_id": 10,
+    "customer_id": 789,
+    "variant_id": 333,
+    "address_id": 555,
+    "payment_method_id": 444,
+    "next_bill_date": "2026-06-15"
+  }
+}
+```
+
+<Warning>
+The `PATCH` endpoint requires `subscription_plan_id`, `customer_id`, `variant_id`, `address_id`, and `payment_method_id`. Sending only `next_bill_date` will return a `400 Bad Request`. Always use the `subscription_token` (prefix `sb_`) as the path parameter — numeric IDs return `404`.
+</Warning>
+
+### Step 8 — Process Asynchronously
+
+Return a `2xx` response as fast as possible, then do all slow work in a background job. Business webhooks have a **15-second total timeout** (5-second connect timeout). If you exceed it, the event is logged as failed and **will not be retried** by Fluid.
+
+```ruby
+class SubscriptionSyncJob < ApplicationJob
+  queue_as :webhooks
+
+  def perform(webhook_body)
+    SubscriptionSynchronizer.new(webhook_body.fetch("payload")).synchronize
+  end
+end
+```
+
+</Steps>
+
+---
+
+<Warning>
+**Business webhooks are not retried by Fluid.** Unlike lifecycle webhooks (install/uninstall), if your endpoint times out or returns a non-2xx status for a `subscription_started` (or any other business event), Fluid logs the failure and moves on. Build a reconciliation path — for example, periodic polling of `/api/subscriptions` with your `dit_` token — to catch and recover from missed events.
+</Warning>
+
+---
+
+## Quick Reference
+
+| Item | Value |
+|---|---|
+| Lifecycle signing key | `droplet.webhook_secret` — prefix `dws_` |
+| Business webhook signing key | Installation `webhook_verification_token` — prefix `wvt_` |
+| Exchange token (one-time, from install payload) | Prefix `dex_` |
+| Installation token (call back to Fluid) | Prefix `dit_` |
+| Subscription token (path param for PATCH) | Prefix `sb_` |
+| Company token (alternative caller credential) | Prefix `C-` |
+| Signature algorithm | HMAC-SHA256, lowercase hex |
+| Signing string | `"{unix_timestamp}.{raw_body}"` |
+| Exchange endpoint | `POST /api/droplet_installations/exchange` |
+| Subscriptions list | `GET /api/subscriptions` |
+| Subscription update | `PATCH /api/subscriptions/:subscription_token` |

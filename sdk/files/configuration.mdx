@@ -1,0 +1,178 @@
+---
+title: "Configure the Files SDK: Options, Limits, and Callbacks"
+sidebarTitle: "Configuration"
+description: "Configure @fluid-app/dam-picker with file type filters, size limits, image dimension constraints, transformation tools, and lifecycle callbacks."
+---
+
+The `DamPicker` constructor accepts a single options object that controls every aspect of the picker's behavior — from which file types users can select, to which source tabs appear, to which transformation tools are available after selection. All options except `token` and `onSelect` are optional; the SDK applies sensible defaults for everything else.
+
+## Full Configuration Options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `token` | `string` | — | **Required.** Public token (`pub-` prefix) |
+| `accept` | `string[]` | All types | MIME types or file extensions to allow |
+| `fromSources` | `SourceId[]` | All sources | Which source tabs to show |
+| `transformations` | `object \| false` | All enabled | Transformation tools to enable, or `false` to skip |
+| `maxFiles` | `number` | `1` | Maximum files the user can select |
+| `minFiles` | `number` | `1` | Minimum files required before confirming |
+| `maxSize` | `number` | No limit | Maximum file size in MB |
+| `imageDim` | `[width, height]` | — | Force exact image dimensions |
+| `imageMax` | `[width, height]` | — | Maximum image dimensions |
+| `imageMin` | `[width, height]` | — | Minimum image dimensions |
+| `asset` | `AssetInput` | — | Pre-load a single asset — skips picker, opens transforms |
+| `assets` | `AssetInput[]` | — | Pre-load multiple assets for transformation |
+| `zIndex` | `number` | `10000` | Z-index of the modal overlay |
+| `onSelect` | `(result) => void` | — | **Required.** Called when the user confirms a selection |
+| `onCancel` | `() => void` | — | Called when the user closes without selecting |
+| `onError` | `(error) => void` | — | Called when an error occurs |
+| `onReady` | `() => void` | — | Called when the picker has loaded and is ready |
+
+## File Type Filtering
+
+Use the `accept` option to restrict which file types users can upload and browse. Pass an array of MIME types, wildcard MIME types, or file extensions:
+
+```javascript
+// Images only
+{ accept: ['image/*'] }
+// Videos only
+{ accept: ['video/*'] }
+// PDF documents only
+{ accept: ['application/pdf'] }
+// Multiple types
+{ accept: ['image/*', 'application/pdf'] }
+// SVG files only
+{ accept: ['.svg'] }
+```
+
+## Common Presets
+
+These ready-made configurations cover the most frequent use cases. Copy and adjust the token and callbacks for your project.
+
+<Tabs>
+  <Tab title="Hero Image">
+    A single large image with a minimum size constraint to ensure quality:
+
+    ```javascript
+    new DamPicker({
+      token: 'pub-xxxxx',
+      accept: ['image/*'],
+      maxSize: 10,
+      imageMin: [1200, 600],
+      maxFiles: 1,
+      onSelect: (result) => setHeroImage(result.asset.url),
+    });
+    ```
+  </Tab>
+  <Tab title="Product Gallery">
+    Multiple product images — require at least 3, allow up to 8:
+
+    ```javascript
+    new DamPicker({
+      token: 'pub-xxxxx',
+      accept: ['image/*'],
+      maxSize: 5,
+      imageMin: [400, 400],
+      minFiles: 3,
+      maxFiles: 8,
+      onSelect: (result) => setGalleryImages(result.assets.map(a => a.url)),
+    });
+    ```
+  </Tab>
+  <Tab title="Avatar">
+    A single square profile picture, upload or URL only:
+
+    ```javascript
+    new DamPicker({
+      token: 'pub-xxxxx',
+      accept: ['image/*'],
+      maxSize: 2,
+      imageMin: [200, 200],
+      fromSources: ['local_file_system', 'url'],
+      maxFiles: 1,
+      onSelect: (result) => setAvatar(result.asset.url),
+    });
+    ```
+  </Tab>
+  <Tab title="Document Upload">
+    PDF documents only, up to 5 files, transformations disabled:
+
+    ```javascript
+    new DamPicker({
+      token: 'pub-xxxxx',
+      accept: ['application/pdf'],
+      maxSize: 25,
+      maxFiles: 5,
+      fromSources: ['local_file_system', 'url'],
+      transformations: false,
+      onSelect: (result) => attachDocuments(result.assets),
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Transform Mode
+
+You can skip the picker entirely and open an existing asset directly in the transformation editor. Pass the asset's URL via the `asset` option:
+
+```javascript
+const picker = new DamPicker({
+  token: 'pub-xxxxx',
+  asset: { url: 'https://ik.imagekit.io/fluid/your-company/image.jpg' },
+  onSelect: (result) => console.log('Transformed:', result.asset.url),
+});
+
+picker.open();
+```
+
+Alternatively, identify the asset by its code instead of a URL:
+
+```javascript
+{ asset: { assetCode: 'ABC123' } }
+```
+
+<Tip>
+Transform Mode is useful for "edit" buttons next to images already stored in your app — the user skips asset selection and goes straight to cropping, background removal, or other tools.
+</Tip>
+
+## Error Handling
+
+Pass an `onError` callback to handle failures gracefully. The callback receives an error object with a machine-readable `code` and a human-readable `message`:
+
+| Code | Cause |
+|---|---|
+| `AUTHENTICATION_ERROR` | Invalid, expired, or blocked token |
+| `NETWORK_ERROR` | Network connectivity issue |
+| `TIMEOUT` | Picker failed to load within the timeout period |
+| `VALIDATION_ERROR` | Invalid configuration options passed to the constructor |
+| `UPLOAD_ERROR` | File upload failed |
+| `SCOPE_ERROR` | Token is missing a required permission scope |
+| `UNKNOWN` | Unexpected error |
+
+```javascript
+new DamPicker({
+  token: 'pub-xxxxx',
+  onSelect: (result) => handleSelection(result),
+  onError: (error) => {
+    switch (error.code) {
+      case 'AUTHENTICATION_ERROR':
+        refreshToken().then(() => picker.open());
+        break;
+      case 'TIMEOUT':
+      case 'NETWORK_ERROR':
+        showRetryMessage();
+        break;
+      default:
+        console.error('Picker error:', error.message);
+    }
+  },
+});
+```
+
+## Content Security Policy
+
+If your application enforces a strict Content Security Policy, add the following directive to allow the picker's iframe to load:
+
+```
+frame-src https://admin.fluid.app;
+```

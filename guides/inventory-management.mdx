@@ -1,0 +1,188 @@
+---
+title: "Track Inventory Changes with Fluid Webhooks"
+sidebarTitle: "Inventory Management"
+description: "Subscribe to Fluid's inventory.updated webhook to receive real-time stock change notifications and automate reordering, alerts, and channel sync."
+---
+
+Fluid's webhook system lets you react to inventory changes the moment they happen. Instead of polling the API for stock updates, you register an endpoint on your server and subscribe to the `inventory.updated` event. Fluid calls that endpoint every time a product's stock quantity changes, giving you the payload you need to trigger reorders, update sales channels, or send low-stock alerts — all in real time. This guide walks you through the complete setup from authentication to handling the webhook payload.
+
+<Steps>
+  <Step title="Obtain your company token">
+    Fluid uses token-based authentication for company API endpoints. Retrieve your **company token** from the admin settings page inside the Fluid application and store it securely in your server environment.
+
+    ```bash
+    # Set the token as an environment variable on your server
+    export FLUID_COMPANY_TOKEN="your_company_token_here"
+    ```
+
+    <Warning>
+      Never hard-code your company token in source code. Use environment variables or a secrets manager.
+    </Warning>
+  </Step>
+
+  <Step title="Set up a webhook endpoint on your server">
+    Create an HTTPS endpoint on your server that can receive `POST` requests containing JSON payloads. The endpoint must respond with a `2xx` status code to acknowledge receipt.
+
+    ```javascript
+    const express = require('express');
+    const app = express();
+
+    app.use(express.json());
+
+    app.post('/webhooks/fluid/inventory', (req, res) => {
+      const payload = req.body;
+      console.log('Received inventory webhook:', JSON.stringify(payload, null, 2));
+
+      // Acknowledge receipt immediately
+      res.status(200).json({ received: true });
+
+      // Process the payload asynchronously (see Step 5)
+      handleInventoryUpdate(payload);
+    });
+
+    app.listen(3000, () => console.log('Webhook server running on port 3000'));
+    ```
+
+    <Note>
+      Your endpoint must be publicly reachable over HTTPS. During local development, use a tunneling tool such as ngrok to expose your local server to the internet.
+    </Note>
+  </Step>
+
+  <Step title="Subscribe to the inventory.updated event">
+    Register your webhook endpoint with Fluid by sending a `POST` request to `/webhooks/subscriptions` with your endpoint URL and the event you want to receive.
+
+    ```json
+    {
+      "url": "YOUR_WEBHOOK_ENDPOINT_URL",
+      "events": ["inventory.updated"]
+    }
+    ```
+
+    ```bash
+    curl -X POST https://api.fluid.app/webhooks/subscriptions \
+      -H "Authorization: Bearer $FLUID_COMPANY_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "url": "https://your-server.com/webhooks/fluid/inventory",
+        "events": ["inventory.updated"]
+      }'
+    ```
+
+    After subscribing, Fluid will deliver a `POST` request to your endpoint every time a product's stock quantity is modified.
+  </Step>
+
+  <Step title="Parse the webhook payload">
+    Each `inventory.updated` notification contains the affected product's ID and its new stock quantity, along with other relevant details.
+
+    ```javascript
+    async function handleInventoryUpdate(payload) {
+      const { product_id, new_quantity, previous_quantity, updated_at } = payload;
+
+      console.log(`Product ${product_id} stock changed from ${previous_quantity} to ${new_quantity}`);
+
+      // Trigger downstream logic based on the new quantity
+      await processStockChange(product_id, new_quantity);
+    }
+    ```
+  </Step>
+
+  <Step title="Act on inventory changes">
+    Use the data from the webhook payload to automate your inventory management workflows.
+
+    **Automated reordering**
+
+    Trigger a purchase order or internal stock transfer when a product falls below your reorder threshold:
+
+    ```javascript
+    const REORDER_THRESHOLD = 10;
+
+    async function processStockChange(productId, newQuantity) {
+      if (newQuantity < REORDER_THRESHOLD) {
+        console.log(`Low stock alert: product ${productId} has ${newQuantity} units remaining`);
+
+        // Option 1: Send a low-stock alert to your purchasing team
+        await sendLowStockAlert({ productId, newQuantity });
+
+        // Option 2: Trigger an automated reorder
+        await createPurchaseOrder({ productId, orderQuantity: 50 });
+      }
+    }
+
+    async function sendLowStockAlert({ productId, newQuantity }) {
+      // Integrate with your email or Slack notification system
+      console.log(`Sending low-stock alert for product ${productId}: ${newQuantity} left`);
+    }
+
+    async function createPurchaseOrder({ productId, orderQuantity }) {
+      // Send a purchase order to your supplier system
+      console.log(`Creating purchase order: ${orderQuantity} units of product ${productId}`);
+    }
+    ```
+
+    **Sync across sales channels**
+
+    Keep your website, marketplace listings, and other channels up to date by pushing the new quantity to your inventory service whenever Fluid reports a change:
+
+    ```javascript
+    async function syncInventoryDisplay(productId, newQuantity) {
+      // Update your web app's database
+      await db.query(
+        'UPDATE products SET stock_quantity = ?, updated_at = NOW() WHERE fluid_product_id = ?',
+        [newQuantity, productId]
+      );
+
+      // Invalidate your CDN or app cache for this product
+      await cache.invalidate(`product:${productId}`);
+
+      console.log(`Inventory display updated: product ${productId} → ${newQuantity} units`);
+    }
+    ```
+
+    <Tip>
+      Respond to the webhook with `200 OK` immediately and process the payload asynchronously (using a job queue or `setImmediate`) to avoid timeouts on Fluid's side. If your handler takes too long, Fluid may retry the delivery.
+    </Tip>
+  </Step>
+</Steps>
+
+## Complete Webhook Handler Example
+
+Here is a production-ready Express handler that acknowledges the webhook, validates the payload, and delegates to your business logic:
+
+```javascript
+const express = require('express');
+const app = express();
+
+app.use(express.json());
+
+const REORDER_THRESHOLD = 10;
+
+app.post('/webhooks/fluid/inventory', async (req, res) => {
+  // Acknowledge immediately to prevent Fluid from retrying
+  res.status(200).json({ received: true });
+
+  const { product_id, new_quantity, previous_quantity } = req.body;
+
+  if (!product_id || new_quantity === undefined) {
+    console.error('Invalid inventory webhook payload:', req.body);
+    return;
+  }
+
+  console.log(
+    `Inventory update — product ${product_id}: ${previous_quantity} → ${new_quantity}`
+  );
+
+  // Sync display across sales channels
+  await syncInventoryDisplay(product_id, new_quantity);
+
+  // Trigger reorder if stock is low
+  if (new_quantity < REORDER_THRESHOLD) {
+    await sendLowStockAlert({ productId: product_id, newQuantity: new_quantity });
+  }
+});
+
+app.listen(3000, () => console.log('Webhook handler running on port 3000'));
+```
+
+<Note>
+  Consult the Fluid API reference for the full structure of inventory webhook payloads, including all available fields and event variants you can subscribe to.
+</Note>

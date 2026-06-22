@@ -1,0 +1,172 @@
+---
+title: "Use the Files SDK with React, Vue, Angular, and Svelte"
+sidebarTitle: "Framework Guides"
+description: "Integrate @fluid-app/dam-picker into React (hook or component), Vue 3, Angular, and Svelte with framework-specific lifecycle and cleanup patterns."
+---
+
+The `@fluid-app/dam-picker` package works with any frontend framework. First-class React bindings ship in the `@fluid-app/dam-picker/react` sub-package, and the vanilla `DamPicker` class integrates cleanly with Vue 3, Angular, Svelte, or plain HTML pages. The examples below show idiomatic patterns for each framework — including the cleanup hooks you need to call `destroy()` and prevent memory leaks.
+
+<Warning>
+Always call `picker.destroy()` inside your framework's cleanup hook (`useEffect` return, `onUnmounted`, `ngOnDestroy`, `onDestroy`) to remove DOM elements and event listeners when the component unmounts.
+</Warning>
+
+## React
+
+The React sub-package exports two options: the `useDamPicker` hook for imperative control, and the `DamPickerModal` component for declarative state-driven control.
+
+<Tabs>
+  <Tab title="Hook">
+    `useDamPicker` returns an `open` function you call with per-invocation options. This approach keeps your component lean — you define picker behavior at the call site rather than at construction time:
+
+    ```typescript
+    import { useDamPicker } from '@fluid-app/dam-picker/react';
+
+    function ImageSelector() {
+      const [imageUrl, setImageUrl] = useState<string | null>(null);
+      const { open, isOpen } = useDamPicker({ token: 'pub-xxxxx' });
+
+      return (
+        <div>
+          <button onClick={() => open({
+            accept: ['image/*'],
+            maxSize: 5,
+            onSelect: (result) => setImageUrl(result.asset.url),
+          })} disabled={isOpen}>
+            Choose Image
+          </button>
+          {imageUrl && <img src={imageUrl} alt="Selected" />}
+        </div>
+      );
+    }
+    ```
+
+    The `isOpen` boolean reflects the picker's current state, making it easy to disable the trigger button while the modal is active.
+  </Tab>
+  <Tab title="Controlled Component">
+    `DamPickerModal` gives you declarative control via the `isOpen` prop. Use this approach when you want your React state to be the single source of truth for the modal's visibility:
+
+    ```typescript
+    import { DamPickerModal } from '@fluid-app/dam-picker/react';
+
+    function ImageSelector() {
+      const [isOpen, setIsOpen] = useState(false);
+      const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+      return (
+        <div>
+          <button onClick={() => setIsOpen(true)}>Choose Image</button>
+          {imageUrl && <img src={imageUrl} alt="Selected" />}
+          <DamPickerModal
+            isOpen={isOpen}
+            token="pub-xxxxx"
+            accept={['image/*']}
+            maxFiles={1}
+            maxSize={10}
+            onSelect={(result) => {
+              setImageUrl(result.asset.url);
+              setIsOpen(false);
+            }}
+            onCancel={() => setIsOpen(false)}
+          />
+        </div>
+      );
+    }
+    ```
+
+    The component automatically calls `destroy()` when it unmounts, so no manual cleanup is required.
+  </Tab>
+</Tabs>
+
+## Vue 3
+
+Use `onMounted` to create the `DamPicker` instance and `onUnmounted` to destroy it. This keeps the picker lifecycle tied to the component lifecycle:
+
+```vue
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue';
+import { DamPicker } from '@fluid-app/dam-picker';
+
+const imageUrl = ref(null);
+let picker = null;
+
+onMounted(() => {
+  picker = new DamPicker({
+    token: 'pub-xxxxx',
+    accept: ['image/*'],
+    onSelect: (result) => { imageUrl.value = result.asset.url },
+  });
+});
+
+onUnmounted(() => picker?.destroy());
+</script>
+
+<template>
+  <button @click="picker?.open()">Choose Image</button>
+  <img v-if="imageUrl" :src="imageUrl" alt="Selected" />
+</template>
+```
+
+<Note>
+The optional chaining (`picker?.open()`, `picker?.destroy()`) guards against the rare case where the button is clicked before `onMounted` completes or after `onUnmounted` runs.
+</Note>
+
+## Angular
+
+Create the `DamPicker` instance as a private class property and implement `OnDestroy` to call `destroy()` when Angular removes the component:
+
+```typescript
+import { Component, OnDestroy } from '@angular/core';
+import { DamPicker } from '@fluid-app/dam-picker';
+
+@Component({
+  selector: 'app-image-selector',
+  template: `
+    <button (click)="openPicker()">Choose Image</button>
+    <img *ngIf="imageUrl" [src]="imageUrl" alt="Selected" />
+  `,
+})
+export class ImageSelectorComponent implements OnDestroy {
+  imageUrl: string | null = null;
+  private picker = new DamPicker({
+    token: 'pub-xxxxx',
+    accept: ['image/*'],
+    onSelect: (result) => { this.imageUrl = result.asset.url },
+  });
+
+  openPicker() { this.picker.open() }
+  ngOnDestroy() { this.picker.destroy() }
+}
+```
+
+## Svelte
+
+Create the picker in `onMount` and clean it up in `onDestroy`:
+
+```svelte
+<script>
+  import { onMount, onDestroy } from 'svelte';
+  import { DamPicker } from '@fluid-app/dam-picker';
+
+  let imageUrl = null;
+  let picker;
+
+  onMount(() => {
+    picker = new DamPicker({
+      token: 'pub-xxxxx',
+      accept: ['image/*'],
+      onSelect: (result) => { imageUrl = result.asset.url },
+    });
+  });
+
+  onDestroy(() => picker?.destroy());
+</script>
+
+<button on:click={() => picker?.open()}>Choose Image</button>
+{#if imageUrl}
+  <img src={imageUrl} alt="Selected" />
+{/if}
+```
+
+<Tip>
+In Svelte, assigning to `imageUrl` inside `onSelect` automatically triggers reactivity — no stores or manual DOM updates required.
+</Tip>

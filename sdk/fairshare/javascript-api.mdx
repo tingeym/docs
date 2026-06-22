@@ -1,0 +1,301 @@
+---
+title: "FairShare SDK JavaScript API Reference for Developers"
+sidebarTitle: "JavaScript API"
+description: "Full reference for window.FairShareSDK—cart management, settings, authentication, affiliate lookup, analytics, and declarative HTML controls."
+---
+
+The FairShare JavaScript API gives you programmatic control over every commerce function the SDK provides. All methods are available on the global `window.FairShareSDK` object, which the SDK populates automatically once the script tag loads. For backwards compatibility, the same API is also available on `window.FluidCommerceSDK`.
+
+## Cart Management
+
+Use these functions to read and manipulate the shopping cart at runtime.
+
+| Function | Description |
+|---|---|
+| `getCart()` | Fetch the current cart from the API |
+| `getLocalCart()` | Read the current cart from local storage without an API call |
+| `getCartItemCount()` | Return the current number of items in the cart |
+| `addCartItems(variantId, options)` | Add one or more items to the cart |
+| `decrementCartItem(variantId, options)` | Decrement the quantity of a cart item |
+| `removeCartItemById(itemId)` | Remove a specific item from the cart by its ID |
+| `updateCartItems(items)` | Update quantities for one or more cart items |
+| `subscribeCartItem(itemId, subscriptionPlanId)` | Enable a subscription on a cart item |
+| `unsubscribeCartItem(itemId)` | Remove a subscription from a cart item |
+| `clearCart()` | Remove all items from the cart |
+| `createCart()` | Create a new empty cart |
+| `checkout()` | Initiate the checkout flow |
+| `getCheckoutUrl()` | Return the current checkout URL |
+| `openCart()` | Open the cart drawer |
+| `closeCart()` | Close the cart drawer |
+
+```javascript
+// Fetch the current cart
+const cart = await window.FairShareSDK.getCart();
+
+// Add a single item
+await window.FairShareSDK.addCartItems(123456, { quantity: 2, subscribe: true });
+
+// Add multiple items at once
+await window.FairShareSDK.addCartItems([
+  { variant_id: 123, quantity: 2, subscribe: true },
+  { variant_id: 456, quantity: 1 },
+]);
+
+// Remove an item
+await window.FairShareSDK.removeCartItemById(456);
+
+// Open and close the cart drawer
+window.FairShareSDK.openCart();
+window.FairShareSDK.closeCart();
+
+// Proceed to checkout
+await window.FairShareSDK.checkout();
+```
+
+### Cart Settings Override
+
+Override the cart widget's appearance and behavior dynamically. Settings are automatically scoped to the current page URL path, so changes on `/products` do not affect `/checkout`.
+
+```javascript
+// Apply overrides for the current page
+window.FairShareSDK.cart.settings.set({
+  hideWidget: true,        // Hide the button while keeping cart functionality
+  position: "bottom_right", // 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right'
+  size: 80,                // Button size in pixels
+  placement: "right",      // Cart drawer side: 'left' or 'right'
+  primaryColor: "#ff6b35",
+  secondaryColor: "#2d3748",
+  xMargin: 20,             // Horizontal margin from screen edge in pixels
+  yMargin: 50,             // Vertical margin from screen edge in pixels
+});
+
+// Read the current overrides
+const cartSettings = window.FairShareSDK.cart.settings.get();
+
+// Remove all overrides and revert to server settings
+window.FairShareSDK.cart.settings.clear();
+```
+
+<Note>
+  Cart settings overrides take precedence over server-side settings and original
+  widget attributes. They persist until you call `cart.settings.clear()`.
+</Note>
+
+You can also control the cart drawer directly with JavaScript or declarative HTML:
+
+```javascript
+window.FairShareSDK.cart.control.open();
+window.FairShareSDK.cart.control.close();
+window.FairShareSDK.cart.control.toggle();
+```
+
+## Enrollment Packs
+
+Add an enrollment pack to the cart by passing its numeric ID:
+
+```javascript
+await window.FairShareSDK.addEnrollmentPack(42);
+```
+
+## Lead Capture
+
+Capture a customer lead programmatically with the fields shown below. All fields are optional except for the contact method you require:
+
+```javascript
+await window.FairShareSDK.captureLead({
+  first_name: "Jane",
+  last_name: "Smith",
+  email: "jane@example.com",
+  phone: "+1234567890",
+  message: "I'm interested in learning more.",
+});
+```
+
+## Media & Library
+
+Retrieve media content data to use in your own UI:
+
+| Function | Description |
+|---|---|
+| `getLibrary(libraryId)` | Fetch library or playlist data by slug or ID |
+| `getMedia(mediaId)` | Fetch a single media item by slug or ID |
+
+```javascript
+const library = await window.FairShareSDK.getLibrary("my-library-slug");
+const media = await window.FairShareSDK.getMedia("my-media-slug");
+```
+
+## Settings & Configuration
+
+| Function | Description |
+|---|---|
+| `fetchSettings()` | Fetch fresh shop configuration settings from the API |
+| `getSettings()` | Return the cached settings without an API call |
+| `getOrFetchSettings()` | Return cached settings, fetching from the API only if not yet cached |
+| `updateLocaleSettings(localeData)` | Update locale settings (replaces, does not merge) |
+| `getCountryCode()` | Return the current country code |
+| `getLanguage()` | Return the current language code |
+
+```javascript
+// Fetch settings from the API
+const settings = await window.FairShareSDK.fetchSettings();
+
+// Update locale (highest-priority override — replaces API values)
+await window.FairShareSDK.updateLocaleSettings({
+  language: "es",
+  country: "MX",
+});
+
+const countryCode = window.FairShareSDK.getCountryCode();
+const language = window.FairShareSDK.getLanguage();
+```
+
+<Warning>
+  Calling `updateLocaleSettings` **replaces** the current locale values rather
+  than merging with them. Pass all locale fields you need in a single call.
+</Warning>
+
+## Authentication
+
+Set and retrieve an authenticated user session:
+
+| Function | Description |
+|---|---|
+| `setAuthentication(token)` | Set the user authentication JWT token |
+| `getAuthenticatedUser()` | Return the currently authenticated user object |
+
+```javascript
+await window.FairShareSDK.setAuthentication("your-jwt-token");
+const user = window.FairShareSDK.getAuthenticatedUser();
+```
+
+## Affiliate Lookup
+
+Look up an affiliate by any supported attribution method:
+
+```javascript
+// Look up by share GUID
+const affiliate = await window.FairShareSDK.lookupAffiliate({
+  share_guid: "affiliate-share-guid",
+});
+
+// Look up by email
+const affiliate = await window.FairShareSDK.lookupAffiliate({
+  email: "affiliate@example.com",
+});
+```
+
+## Custom Checkout Handler
+
+Replace the default checkout behavior with your own handler. Use this to redirect to a custom checkout page or integrate a third-party payment flow:
+
+```javascript
+window.FairShareSDK.setOnCheckout(async (cartData) => {
+  // Custom checkout logic — redirect, open a modal, etc.
+  console.log("Custom checkout triggered", cartData);
+});
+
+// Retrieve the currently registered handler
+const handler = window.FairShareSDK.getOnCheckout();
+```
+
+## Event Tracking & Analytics
+
+| Function | Description |
+|---|---|
+| `trackFairshareEvent(eventData)` | Track a custom event with a name and properties |
+| `trackCheckoutStarted(data)` | Track a checkout started event |
+| `getSessionToken()` | Return the current session token |
+| `getAttribution()` | Return the current attribution data |
+| `flushEvents()` | Flush buffered events immediately |
+| `flushEventsWithBeacon()` | Flush events using the Beacon API (safe for page unload) |
+
+```javascript
+// Track a custom event
+window.FairShareSDK.trackFairshareEvent({
+  event: "custom_event",
+  properties: { key: "value" },
+});
+
+// Track checkout started
+window.FairShareSDK.trackCheckoutStarted({ cart_token: "cart_123456" });
+
+// Get attribution data
+const attribution = window.FairShareSDK.getAttribution();
+
+// Flush buffered events
+await window.FairShareSDK.flushEvents();
+```
+
+## SDK Management
+
+| Function | Description |
+|---|---|
+| `initializeFluid(options)` | Programmatically initialize the SDK (usually automatic) |
+| `reset()` | Reset all SDK state |
+| `resetFairshare()` | Reset FairShare tracking state only |
+
+```javascript
+// Manual initialization (advanced — usually not needed)
+window.FairShareSDK.initializeFluid({
+  fluidShop: "your-shop-id",
+  debug: true,
+});
+
+// Full reset
+window.FairShareSDK.reset();
+```
+
+## Declarative HTML Controls
+
+You can trigger common actions directly from HTML without writing any JavaScript. The SDK listens for clicks on elements with these data attributes.
+
+### Cart Controls
+
+```html
+<!-- Open the cart drawer -->
+<button data-fluid-cart="open">View Cart</button>
+
+<!-- Close the cart drawer -->
+<button data-fluid-cart="close">Close Cart</button>
+
+<!-- Toggle the cart drawer open/closed -->
+<button data-fluid-cart="toggle">Toggle Cart</button>
+```
+
+### Add to Cart
+
+```html
+<!-- Add a single product variant -->
+<button data-fluid-add-to-cart="123456">Add to Cart</button>
+
+<!-- Specify a quantity -->
+<button data-fluid-add-to-cart="123456" data-fluid-quantity="2">Add 2 to Cart</button>
+
+<!-- Open the cart drawer immediately after adding -->
+<button data-fluid-add-to-cart="123456" data-fluid-open-cart-after-add="true">
+  Add to Cart and View
+</button>
+
+<!-- Add with a subscription -->
+<button data-fluid-add-to-cart="123456" data-fluid-subscribe="true">
+  Subscribe and Save
+</button>
+```
+
+### Displaying Cart Count
+
+Add an element with `id="fluid-cart-count"` anywhere on your page. The SDK updates its text content automatically whenever the cart changes:
+
+```html
+<!-- Standalone count -->
+<span id="fluid-cart-count">0</span>
+
+<!-- Inside a styled cart icon -->
+<div class="cart-icon">
+  <i class="fas fa-shopping-cart"></i>
+  <span class="badge" id="fluid-cart-count">0</span>
+</div>
+```
+
+The count updates when items are added, removed, or updated, when the cart is cleared, and when the cart is refreshed from the API.

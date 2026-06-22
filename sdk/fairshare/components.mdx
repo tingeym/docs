@@ -1,0 +1,256 @@
+---
+title: "FairShare SDK Web Components Reference and Attributes"
+sidebarTitle: "Components"
+description: "Reference for all FairShare SDK web components—cart widget, lead capture, media, playlist, attribution, and locale selector components."
+---
+
+The FairShare SDK registers a set of custom HTML elements that you can place anywhere on your page. Each component is self-contained: it fetches its own data, applies its own styles, and communicates with the rest of the SDK automatically. You configure components using HTML attributes, the same way you would a native `<input>` or `<select>` element.
+
+## All Available Components
+
+| Component | Description |
+|---|---|
+| `<fluid-cart-widget>` | Floating cart button and drawer with full checkout support |
+| `<fluid-lead-capture-widget>` | Floating lead capture form for collecting customer contacts |
+| `<fluid-media>` | Display media content in a popover or inline layout |
+| `<fluid-playlist>` | Display a collection of media items |
+| `<fluid-attribution>` | Display affiliate attribution information |
+| `<fluid-country>` | Country selector for locale settings |
+| `<fluid-user>` | Authenticated user info display with login/logout controls |
+| `<fluid-language>` | Language selector for locale settings |
+
+---
+
+## `<fluid-cart-widget>`
+
+The cart widget renders a floating action button that opens a full cart drawer. It handles product display, quantity controls, and checkout entirely on its own.
+
+| Attribute / Property | Type | Default | Description |
+|---|---|---|---|
+| `position` | string | `"bottom_right"` | Button position: `top_left`, `top_right`, `bottom_left`, `bottom_right` |
+| `placement` | string | — | Cart drawer side: `left` or `right` |
+| `fluid-shop-display-name` | string | `"Fluid"` | Shop name shown in the cart header |
+| `size` | number | `60` | Button size in pixels |
+| `x-margin` | number | `40` | Horizontal margin from the screen edge in pixels |
+| `y-margin` | number | `98` | Vertical margin from the screen edge in pixels |
+| `primary-color` | string | — | Primary color override for the widget |
+| `secondary-color` | string | — | Secondary color override for the widget |
+| `use-brand` | boolean | `false` | Use your shop's brand colors |
+| `hide-widget` | boolean | `false` | Hide the button while keeping cart functionality accessible |
+| `always-open` | boolean | `false` | Keep the cart sidebar permanently open with no floating button |
+| `demo-mode` | boolean | `false` | Prevent API calls for UI testing purposes |
+
+```html
+<fluid-cart-widget
+  position="bottom-right"
+  fluid-shop-display-name="Your Shop"
+></fluid-cart-widget>
+```
+
+You can also control the cart drawer from JavaScript at any time:
+
+```javascript
+window.FairShareSDK.cart.control.open();
+window.FairShareSDK.cart.control.close();
+window.FairShareSDK.cart.control.toggle();
+```
+
+---
+
+## `<fluid-lead-capture-widget>`
+
+The lead capture widget renders a floating button that opens a configurable contact form. Use it to collect customer names, email addresses, or phone numbers.
+
+| Attribute / Property | Type | Default | Description |
+|---|---|---|---|
+| `title` | string | `"Have a question?"` | Header title displayed in the widget |
+| `description` | string | `"We'd love to get in touch!"` | Description shown in the bubble |
+| `submit-button-text` | string | `"Send Message"` | Label for the submit button |
+| `success-message` | string | `"Thank you for your message! We'll get back to you soon."` | Message shown after submission |
+| `contact-method` | string | `"email"` | Preferred contact field: `email` or `phone` |
+| `position` | string | `"bottom_right"` | Button position: `top_left`, `top_right`, `bottom_left`, `bottom_right` |
+| `size` | number | `60` | Trigger button size in pixels |
+| `x-margin` | number | `40` | Horizontal margin from the screen edge in pixels |
+| `y-margin` | number | `98` | Vertical margin from the screen edge in pixels |
+| `primary-color` | string | — | Primary color override |
+| `use-brand` | boolean | `false` | Use your shop's brand colors |
+| `hide-widget` | boolean | `false` | Hide the trigger button while keeping the form accessible |
+| `fluid-shop-display-name` | string | `"Fluid"` | Shop name used in consent text |
+| `avatar-src` | string | — | Avatar image URL |
+| `logo-src` | string | — | Logo image URL for the footer |
+| `logo-alt` | string | — | Alt text for the logo image |
+| `footer-text` | string | `"Use is subject to terms"` | Footer text |
+| `terms-url` | string | `"https://fluid.app/terms-conditions"` | URL for your terms and conditions page |
+| `attract-bubble-show-delay` | number | `1000` | Milliseconds before the attract bubble appears |
+| `attract-bubble-hide-delay` | number | `20000` | Milliseconds before the attract bubble disappears |
+| `z-index` | number | `9999` | Z-index for layering over page content |
+
+```html
+<fluid-lead-capture-widget
+  title="Need help?"
+  description="Chat with our team!"
+  contact-method="email"
+  position="bottom-right"
+></fluid-lead-capture-widget>
+```
+
+---
+
+## `<fluid-media>`
+
+The media widget displays a video or image from your Fluid media library. Use `library-id` to show a browsable library or `media-id` to pin a single item.
+
+| Attribute / Property | Type | Default | Description |
+|---|---|---|---|
+| `library-id` | string | — | Library slug or ID to fetch and display |
+| `media-id` | string | — | Single media item slug or ID to display |
+| `embed-type` | string | `"popover"` | Display mode: `popover`, `inline`, or `inline-shopping` |
+| `auto-open` | boolean | `false` | Automatically open the popover on page load (popover mode only) |
+| `height` | string | — | Thumbnail height (e.g., `"300px"`) |
+| `width` | string | — | Thumbnail width (e.g., `"500px"`) |
+| `thumbnail-foam` | boolean | `false` | Fill the provided dimensions with object-cover (may crop); maintains aspect ratio when `false` |
+| `hide-widget` | boolean | `false` | Hide the widget |
+| `class-name` | string | — | Additional CSS classes to apply to the element |
+
+```html
+<!-- Library display -->
+<fluid-media library-id="your-library-id"></fluid-media>
+
+<!-- Single media item -->
+<fluid-media media-id="your-media-id"></fluid-media>
+
+<!-- Inline embed with custom dimensions -->
+<fluid-media
+  library-id="your-library-id"
+  embed-type="inline"
+  height="300px"
+  width="500px"
+></fluid-media>
+```
+
+---
+
+## `<fluid-playlist>`
+
+The playlist component displays a browsable collection of media items from a Fluid media library. Users can scroll through the playlist and open individual items.
+
+```html
+<fluid-playlist library-id="your-library-id"></fluid-playlist>
+```
+
+---
+
+## `<fluid-attribution>`
+
+The attribution component displays the affiliate information associated with the current page. It updates automatically when attribution changes, including during single-page application navigation.
+
+```html
+<fluid-attribution></fluid-attribution>
+```
+
+<Note>
+  Attribution is calculated server-side by default. Place this component on any
+  page where you want to show the associated affiliate's name or branding.
+</Note>
+
+---
+
+## `<fluid-country>`
+
+The country selector component lets visitors choose their country. The selected country is applied to locale settings and affects currency, shipping, and other region-specific configurations.
+
+```html
+<fluid-country></fluid-country>
+```
+
+---
+
+## `<fluid-user>`
+
+The user component displays the currently authenticated user's profile information and provides login and logout controls. When no user is authenticated, it renders a login prompt.
+
+```html
+<fluid-user></fluid-user>
+```
+
+---
+
+## `<fluid-language>`
+
+The language selector component lets visitors choose their preferred language. The selected language is applied to locale settings and updates all translatable content served by the SDK.
+
+```html
+<fluid-language></fluid-language>
+```
+
+---
+
+## Adding Products to Cart
+
+Use `data-fluid-add-to-cart` attributes to wire up add-to-cart behavior directly in HTML without writing JavaScript.
+
+```html
+<!-- Add a single product variant -->
+<button data-fluid-add-to-cart="123456">Add to Cart</button>
+
+<!-- Specify quantity -->
+<button data-fluid-add-to-cart="123456" data-fluid-quantity="2">Add 2</button>
+
+<!-- Open the cart drawer immediately after adding -->
+<button data-fluid-add-to-cart="123456" data-fluid-open-cart-after-add="true">
+  Add to Cart and View
+</button>
+
+<!-- Add with a subscription -->
+<button data-fluid-add-to-cart="123456" data-fluid-subscribe="true">
+  Subscribe and Save
+</button>
+
+<!-- Add multiple variants with different subscription settings -->
+<button
+  data-fluid-add-to-cart="123456,789012"
+  data-fluid-subscribe="true,false"
+>
+  Add Bundle
+</button>
+```
+
+### Adding Enrollment Packs
+
+Use the `data-fluid-add-enrollment-pack` attribute to add an enrollment pack to the cart:
+
+```html
+<!-- Add an enrollment pack -->
+<button data-fluid-add-enrollment-pack="42">Enroll</button>
+
+<!-- Add enrollment pack and open the cart drawer immediately -->
+<button
+  data-fluid-add-enrollment-pack="42"
+  data-fluid-open-cart-after-add="true"
+>
+  Enroll and View Cart
+</button>
+```
+
+---
+
+## Customizing Widget Styles
+
+Override the default widget appearance by setting CSS custom properties in your stylesheet. The variables apply globally to all widgets on the page.
+
+```css
+:root {
+  --company-color: #3461ff; /* Your primary brand color */
+  --ff-body: "Your Custom Font", sans-serif; /* Your font family */
+}
+```
+
+| Variable | Effect |
+|---|---|
+| `--company-color` | Controls primary colors, accents, and highlights across all widgets |
+| `--ff-body` | Sets the font family used throughout the widgets; falls back to system fonts if not set |
+
+<Tip>
+  Set these variables in your main stylesheet before the SDK script tag loads to
+  ensure the widgets render with your brand colors on first paint.
+</Tip>

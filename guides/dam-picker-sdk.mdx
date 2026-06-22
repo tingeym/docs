@@ -1,0 +1,253 @@
+---
+title: "Add a File Picker to Your App with the DAM SDK"
+sidebarTitle: "DAM Picker SDK"
+description: "Embed Fluid's @fluid-app/dam-picker SDK into any web app to give users a full-featured modal for browsing, uploading, and selecting digital assets."
+---
+
+The `@fluid-app/dam-picker` SDK lets you drop a complete asset-picker modal into any web application with just a few lines of code. Users can browse your company's DAM library, upload files from their computer, import from a URL, or search Unsplash — all within a single modal. When a user confirms a selection, your app receives structured asset data including the public URL, asset code, MIME type, and optional metadata. The SDK works with any frontend framework and ships first-class React bindings alongside a vanilla JavaScript API that integrates cleanly with Vue, Angular, Svelte, or plain HTML pages.
+
+## Installation
+
+Install the package from your preferred package manager.
+
+<CodeGroup>
+```bash npm
+npm install @fluid-app/dam-picker
+```
+
+```bash pnpm
+pnpm add @fluid-app/dam-picker
+```
+
+```bash yarn
+yarn add @fluid-app/dam-picker
+```
+</CodeGroup>
+
+## Authentication
+
+The picker requires a **Fluid API token** to authenticate requests. This is the same token used across other Fluid API integrations. See the [Authentication guide](/guides/authentication) for details on obtaining and managing your token.
+
+<Warning>
+  Never expose your Fluid API token in client-side code that is committed to a public repository. Use environment variables or a server-side token exchange to keep your credentials safe.
+</Warning>
+
+## Quick Start
+
+Choose the integration style that fits your stack.
+
+<Tabs>
+  <Tab title="Vanilla JS">
+    ```javascript
+    import { DamPicker } from '@fluid-app/dam-picker';
+
+    const picker = new DamPicker({
+      token: 'your-fluid-api-token',
+      onSelect: (assets) => { console.log('Selected:', assets[0].url); },
+      onCancel: () => { console.log('User cancelled'); },
+      onError: (error) => { console.error('Picker error:', error.message); },
+    });
+
+    document.getElementById('choose-file').addEventListener('click', () => picker.open());
+    ```
+  </Tab>
+  <Tab title="React Hook">
+    The `useDamPicker` hook gives you an imperative `open()` function. Call it with callbacks when you need to trigger the picker.
+
+    ```javascript
+    import { useDamPicker } from '@fluid-app/dam-picker/react';
+
+    const { open, isOpen } = useDamPicker({ token: 'your-fluid-api-token' });
+
+    // Call open() in an event handler:
+    open({
+      onSelect: (assets) => setImageUrl(assets[0].url),
+      onCancel: () => {},
+    });
+    ```
+  </Tab>
+  <Tab title="React Component">
+    The `DamPickerModal` component gives you declarative open/close control via the `isOpen` prop.
+
+    ```jsx
+    <DamPickerModal
+      isOpen={isOpen}
+      token="your-fluid-api-token"
+      onSelect={(assets) => {
+        setImageUrl(assets[0].url);
+        setIsOpen(false);
+      }}
+      onCancel={() => setIsOpen(false)}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  `onSelect` always receives an array of `SelectedAsset[]`, even when `maxSelectable` is `1`. Access the first asset with `assets[0]`.
+</Note>
+
+## Configuration Options
+
+Pass these options to the `DamPicker` constructor or as props on `DamPickerModal`.
+
+| Option | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | `string` | Yes | — | Fluid API token for authentication |
+| `onSelect` | `(assets: SelectedAsset[]) => void` | Yes | — | Called when the user confirms their selection |
+| `onCancel` | `() => void` | No | — | Called when the user closes the picker without selecting |
+| `onError` | `(error: DamPickerError) => void` | No | — | Called when an error occurs |
+| `onReady` | `() => void` | No | — | Called when the picker iframe has loaded and is ready |
+| `maxSelectable` | `number` | No | `1` | Maximum number of assets the user can select (minimum: 1) |
+| `filters.assetTypes` | `AssetType[]` | No | — | Restrict which asset types are shown in the picker |
+| `baseUrl` | `string` | No | Production URL | Override the picker app URL (useful for local development) |
+| `zIndex` | `number` | No | `10000` | Z-index of the modal overlay |
+
+### Asset Type Filtering
+
+Use `filters.assetTypes` to restrict the picker to specific file categories.
+
+```javascript
+const picker = new DamPicker({
+  token: 'your-token',
+  filters: {
+    assetTypes: ['images', 'videos'],
+  },
+  onSelect: (assets) => console.log(assets),
+});
+```
+
+| Type | Description |
+|---|---|
+| `'images'` | Image files (jpg, png, gif, webp, svg, etc.) |
+| `'videos'` | Video files (mp4, webm, mov, etc.) |
+| `'documents'` | Documents (pdf, doc, docx, xls, xlsx, etc.) |
+| `'audio'` | Audio files (mp3, wav, ogg, etc.) |
+
+## Selected Asset Structure
+
+When a user makes a selection, `onSelect` receives an array of `SelectedAsset` objects with the following shape.
+
+```typescript
+interface SelectedAsset {
+  /** Public URL to access the asset */
+  url: string;
+
+  /** Unique asset identifier */
+  assetCode: string;
+
+  /** Display name of the asset */
+  name: string;
+
+  /** MIME type (e.g., "image/png", "video/mp4") */
+  mimeType: string;
+
+  /** Optional metadata (dimensions, file size) */
+  metadata?: {
+    width?: number;
+    height?: number;
+    fileSize?: number;
+  };
+
+  /** ID of the selected variant, if applicable */
+  variantId?: string;
+}
+```
+
+## Instance Methods
+
+The `DamPicker` class exposes the following methods on its instance.
+
+| Method | Returns | Description |
+|---|---|---|
+| `open()` | `void` | Opens the picker modal |
+| `close()` | `void` | Closes the picker modal |
+| `destroy()` | `void` | Cleans up the instance and removes all DOM elements |
+| `isOpen()` | `boolean` | Returns `true` if the picker is currently open |
+| `getState()` | `DamPickerState` | Returns the current state: `'idle'`, `'loading'`, `'ready'`, `'open'`, or `'closed'` |
+
+<Tip>
+  Call `destroy()` when your component unmounts or when you no longer need the picker to prevent memory leaks.
+</Tip>
+
+```javascript
+const picker = new DamPicker({ token, onSelect });
+
+// Later, when no longer needed:
+picker.destroy();
+```
+
+## Error Handling
+
+The `onError` callback receives a `DamPickerError` object with a machine-readable `code` and a human-readable `message`.
+
+| Error Code | Cause |
+|---|---|
+| `AUTHENTICATION_ERROR` | Invalid or expired API token |
+| `NETWORK_ERROR` | Network connectivity issue |
+| `TIMEOUT` | Picker failed to load within the 10-second timeout |
+| `IFRAME_LOAD_ERROR` | Picker iframe failed to load |
+| `UNKNOWN` | Unexpected error |
+
+```javascript
+const picker = new DamPicker({
+  token: 'your-token',
+  onSelect: (assets) => handleSelection(assets),
+  onError: (error) => {
+    switch (error.code) {
+      case 'AUTHENTICATION_ERROR':
+        refreshToken().then(() => picker.open());
+        break;
+      case 'TIMEOUT':
+      case 'NETWORK_ERROR':
+        showRetryMessage();
+        break;
+      default:
+        console.error('Picker error:', error.message);
+    }
+  },
+});
+```
+
+## Content Security Policy
+
+If your application uses a strict CSP, add the following directive to allow the picker iframe to load.
+
+```
+frame-src https://admin.fluid.app;
+```
+
+For local development, include the local origin as well:
+
+```
+frame-src https://admin.fluid.app http://localhost:3007;
+```
+
+## Troubleshooting
+
+<Accordion title="Picker doesn't open">
+  - Verify your API token is valid and has not expired. An invalid token triggers `onError` with `AUTHENTICATION_ERROR`.
+  - Check the browser console for JavaScript errors.
+  - Confirm that `@fluid-app/dam-picker` is installed and imported correctly in your project.
+</Accordion>
+
+<Accordion title="Picker opens but shows a blank screen">
+  - Check your network connectivity. The picker loads inside an iframe served from `admin.fluid.app`.
+  - If you are on a corporate network or VPN, confirm that `admin.fluid.app` is not blocked.
+  - Watch for the `onReady` callback — if it never fires, there is likely a network issue preventing the iframe from loading.
+</Accordion>
+
+<Accordion title="Timeout errors">
+  - The picker enforces a 10-second load timeout. On slow connections this may not be sufficient.
+  - Confirm that `admin.fluid.app` is reachable from the user's browser before opening the picker.
+</Accordion>
+
+<Accordion title="Content Security Policy (CSP) issues">
+  Add the required directive to your CSP header:
+
+  ```
+  frame-src https://admin.fluid.app;
+  ```
+
+  For local development also add `http://localhost:3007`. See the [Content Security Policy](#content-security-policy) section above for the full example.
+</Accordion>

@@ -1,0 +1,109 @@
+---
+title: "Fluid Theme System: Customize Your Storefront"
+sidebarTitle: "Overview"
+description: "Build and customize customer-facing storefront pages with Fluid's multi-layered theme system using Liquid templating, JSON sections, and CSS variables."
+---
+
+Fluid's theme system gives you full control over the visual appearance and layout of every customer-facing page in your storefront. Themes are distributed as ZIP files containing Liquid templates, JSON section schemas, CSS, JavaScript, and image assets. Every company can maintain multiple themes simultaneously, though only one theme can be active (published) at a time. You can start from a platform-provided root theme, clone and extend it, or build a custom theme entirely from scratch.
+
+## Core Concepts
+
+<CardGroup cols={2}>
+  <Card title="Root Themes" icon="layer-group">
+    Platform-provided base themes — **fluid**, **vox**, and **base** — that serve as the canonical foundation for all theme development. Root themes are maintained by Fluid and cannot be directly modified by individual companies.
+  </Card>
+  <Card title="Company Themes" icon="building">
+    Company-specific themes created by cloning a root theme. Company themes give your organization its own isolated copy to customize freely — colors, typography, layout, and full template overrides — without affecting the root.
+  </Card>
+  <Card title="Template Inheritance" icon="sitemap">
+    When a company theme doesn't include a template for a given page type, Fluid automatically falls back to the parent root theme's template. Override only the pages you need; inherit everything else.
+  </Card>
+  <Card title="Theme Hierarchy" icon="arrow-down-wide-short">
+    Template resolution follows a clear priority order: a URL parameter override → a content-specific template assignment → the company theme default → the root theme fallback. The first match wins.
+  </Card>
+</CardGroup>
+
+## Customizable Pages
+
+You can create custom templates for the following pages in your storefront:
+
+| Page | Template Type | URL Pattern |
+|------|--------------|-------------|
+| Home / Landing page | `home_page` | `/` |
+| Shop page | `shop_page` | `/:credit/shop` |
+| Product page | `product` | `/:credit/shop/:product_slug` |
+| Medium (media post) page | `medium` | `/:credit/media/:slug` |
+| Playlist page | `medium` | `/:credit/playlists/:slug` |
+| Cart page | `cart_page` | `/cart` |
+| Collection page | `collection` | `/:credit/collections/:slug` |
+| Enrollment pack page | `enrollment_pack` | `/:credit/enrollments/:token` |
+
+<Note>
+  Each page type supports multiple named templates (e.g., `product/default/` and `product/featured/`). Only one template per page type can be published at a time, but you can preview any draft template before activating it.
+</Note>
+
+## Theme Customization Levels
+
+Fluid supports five distinct levels of customization, ranging from simple variable tweaks to fully custom root themes. Higher levels give more control but require more development effort and opt out of automatic upgrades.
+
+| Level | What You Can Change | Auto-Upgrade Compatible |
+|-------|---------------------|------------------------|
+| **1** | CSS variables — brand colors, fonts, spacing | ✅ Yes |
+| **2** | Section and block settings via the visual editor | ✅ Yes |
+| **3** | Custom stylesheet overrides appended to the theme | ✅ Yes |
+| **4** | Full template content replacement (Liquid or JSON) | ❌ Manual review required |
+| **5** | Custom root theme submitted to the marketplace | ❌ Platform review required |
+
+<Tip>
+  Stick to Levels 1–3 for brand customization when you want to receive automatic theme updates from Fluid. Modifying templates (Level 4) increments the theme's minor version and disables automatic upgrades.
+</Tip>
+
+## Available Root Themes
+
+Fluid ships three professionally designed root themes. Clone any of them as the starting point for your company theme.
+
+<CardGroup cols={3}>
+  <Card title="Base" icon="cube">
+    A clean, minimal design that works for any business type. Ideal as a foundation when you plan to heavily customize the look and feel.
+  </Card>
+  <Card title="Vox" icon="bolt">
+    Modern and bold styling built for creative and high-energy brands. Ships with expressive typography and vibrant section layouts.
+  </Card>
+  <Card title="Fluid" icon="droplet">
+    A versatile, well-balanced design that adapts well to a wide range of brand identities. A solid all-purpose starting point.
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+<Steps>
+  <Step title="Navigate to Themes">
+    In your Fluid admin, go to **Sidebar → Website → Themes**. You'll see all available root themes alongside any company themes you have already created.
+  </Step>
+  <Step title="Clone or customize a theme">
+    Click **Customize** on the root theme you want to start from, or click the download icon to export it as a ZIP, then re-import it as a new company theme so the original stays intact.
+  </Step>
+  <Step title="Configure theme variables">
+    Open the theme settings panel and set your brand colors, fonts, border radius, and container width. These values are injected as CSS custom properties across all templates automatically.
+  </Step>
+  <Step title="Publish your theme">
+    When you're satisfied with your changes, click **Publish** to activate the theme for all visitors. You can revert to any previous version at any time using the **Versions** dropdown.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Developer Guide" icon="code" href="/themes/developer-guide">
+    Deep-dive into Liquid templating, JSON sections, asset management, and the full theme file structure.
+  </Card>
+  <Card title="Schema Components" icon="brackets-curly" href="/themes/schema-components">
+    Learn how to build dynamic, configurable sections using Fluid's JSON schema system with settings, blocks, and presets.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/themes/cli">
+    Install the Fluid CLI to pull, push, and develop themes locally using your preferred IDE.
+  </Card>
+  <Card title="Marketplace" icon="store" href="/themes/marketplace">
+    Submit your finished theme to the global Fluid Theme Marketplace for distribution across the platform.
+  </Card>
+</CardGroup>

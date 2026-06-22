@@ -1,0 +1,270 @@
+---
+title: "Upload Files to Fluid's Digital Asset Management"
+sidebarTitle: "DAM Uploads"
+description: "Upload files programmatically to Fluid's DAM system using multipart form-data endpoints, manage variants, and organize assets with tags and tree paths."
+---
+
+Fluid's Digital Asset Management (DAM) system gives your company a centralized library to store and serve media — product images, videos, documents, and more. Every uploaded file becomes an **asset** with one or more **variants** (different file versions or language variants of the same asset). Assets are organized in a tree structure keyed by `{company_id}.{category}.{asset_code}`, making them easy to query and reference across your application. This guide covers how to create assets and add variants programmatically using Fluid's REST API.
+
+## Authentication
+
+All DAM upload endpoints require Bearer token authentication using a valid **company token**.
+
+```
+Authorization: Bearer <company_token>
+```
+
+<Note>
+  Your company token is scoped to your company's assets. You can only create and manage assets that belong to your company.
+</Note>
+
+## Asset Path Structure
+
+When an asset is created, Fluid assigns it a canonical path and a tree path used for library queries.
+
+```
+Storage path: {company_id}/{category}/{asset_code}
+Tree path:    {company_id}.{category}.{asset_code}
+```
+
+**Example:**
+
+```
+Storage: 123/images/ABC123
+Tree:    123.images.ABC123
+```
+
+Assets are automatically categorized based on their MIME type:
+
+| MIME type | Category |
+|---|---|
+| `image/*` | `images` |
+| `video/*` | `videos` |
+| `audio/*` | `audio` |
+| `text/*`, `*pdf*`, `*word*`, `*rtf*` | `documents` |
+| All others | `other` |
+
+## Endpoints
+
+### Create an Asset
+
+**`POST /api/dam/assets`**
+
+Creates a new asset record and its default variant in a single operation. The file is uploaded to Fluid's CDN storage and the response includes the public URL.
+
+**Required parameters:**
+
+<ParamField body="asset[file]" type="file" required>
+  Binary file upload via multipart form-data. Maximum file size: 200 MB for images, 2 GB for videos.
+</ParamField>
+
+<ParamField body="asset[name]" type="string" required>
+  Display name for the asset shown in the DAM library.
+</ParamField>
+
+**Optional parameters:**
+
+<ParamField body="asset[description]" type="string">
+  A longer description of the asset for internal reference.
+</ParamField>
+
+<ParamField body="asset[tags]" type="string">
+  Comma-separated list of tags to attach to the default variant (e.g., `"en,en-us,product,featured"`). Tags are normalized to lowercase with hyphens.
+</ParamField>
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://api.fluid.app/api/dam/assets" \
+  -H "Authorization: Bearer <company_token>" \
+  -H "Content-Type: multipart/form-data" \
+  -F "asset[file]=@/path/to/image.png" \
+  -F "asset[name]=My Product Image" \
+  -F "asset[description]=High-resolution product image" \
+  -F "asset[tags]=en,en-us,product,featured"
+```
+
+```ruby Ruby (Faraday)
+conn = Faraday.new do |f|
+  f.request :multipart
+end
+
+response = conn.post("/api/dam/assets") do |req|
+  req.headers["Authorization"] = "Bearer #{company_token}"
+  req.body = {
+    "asset[file]"        => Faraday::UploadIO.new("/path/to/image.png", "image/png"),
+    "asset[name]"        => "My Product Image",
+    "asset[description]" => "High-resolution product image",
+    "asset[tags]"        => "en,en-us,product,featured"
+  }
+end
+```
+</CodeGroup>
+
+**Success response — `201 Created`:**
+
+```json
+{
+  "asset": {
+    "id": "string",
+    "code": "ABC123",
+    "name": "My Product Image",
+    "description": "High-resolution product image",
+    "category": "images",
+    "created_at": "2023-01-01T00:00:00Z",
+    "updated_at": "2023-01-01T00:00:00Z",
+    "canonical_path": "123.images.ABC123",
+    "company": "Company Name",
+    "tree_paths": ["123.images.ABC123"],
+    "default_variant_id": "variant-id",
+    "variants": [
+      {
+        "id": "variant-id",
+        "file_name": "ABC123.png",
+        "mime_type": "image/png",
+        "tags": ["en", "en-us", "product", "featured"],
+        "default": true,
+        "url": "https://imagekit.io/path/to/file.png"
+      }
+    ]
+  },
+  "meta": {
+    "request_id": "123e4567-e89b-12d3-a456-426614174000",
+    "timestamp": "2023-01-01T00:00:00Z"
+  }
+}
+```
+
+---
+
+### Add Variants to an Existing Asset
+
+**`POST /api/dam/assets/{code}/variants`**
+
+Adds one or more file variants to an existing asset. Use this endpoint to upload locale-specific versions of an asset (e.g., an image with French text) or alternative file formats.
+
+**Path parameter:**
+
+<ParamField path="code" type="string" required>
+  The unique asset code returned when the asset was created (e.g., `ABC123`).
+</ParamField>
+
+**Request body:** Send an array of variant objects, each with its own file and optional tags.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://api.fluid.app/api/dam/assets/ABC123/variants" \
+  -H "Authorization: Bearer <company_token>" \
+  -H "Content-Type: multipart/form-data" \
+  -F "variants[0][file]=@/path/to/variant1.png" \
+  -F "variants[0][tags]=en,en-us" \
+  -F "variants[1][file]=@/path/to/variant2.png" \
+  -F "variants[1][tags]=es,es-mx,draft"
+```
+
+```ruby Ruby
+variants_data = {
+  variants: [
+    { file: File.open("path/to/variant1.png"), tags: "en,en-us" },
+    { file: File.open("path/to/variant2.png"), tags: "es,es-mx,draft" }
+  ]
+}
+```
+</CodeGroup>
+
+**Success response — `201 Created`:**
+
+The response contains an array mixing successfully created variants and any per-variant error objects. A `201` is returned even when some variants fail; inspect each item in the array.
+
+```json
+{
+  "variants": [
+    {
+      "id": "variant-id-1",
+      "file_name": "ABC123-variant1.png",
+      "mime_type": "image/png",
+      "tags": ["en", "en-us"],
+      "default": false,
+      "url": "https://imagekit.io/path/to/variant1.png"
+    },
+    {
+      "errors": {
+        "file": ["File size exceeds maximum limit of 100MB"]
+      }
+    }
+  ],
+  "meta": {
+    "request_id": "123e4567-e89b-12d3-a456-426614174000",
+    "timestamp": "2023-01-01T00:00:00Z"
+  }
+}
+```
+
+## Tag Formatting
+
+Tags are passed as comma-separated strings and normalized before storage.
+
+**Normalization rules:**
+
+1. Convert to lowercase
+2. Remove non-word characters except hyphens
+3. Replace underscores with hyphens
+4. Deduplicate consecutive hyphens
+
+**Examples:**
+
+| Input | Normalized |
+|---|---|
+| `"Product_Tag!"` | `"product-tag"` |
+| `"EN-US"` | `"en-us"` |
+| `"test__tag"` | `"test-tag"` |
+
+<Warning>
+  Tags containing square brackets (`[]`) or quote characters (`"`) are invalid and will be ignored by the API. Always pass plain comma-separated strings.
+</Warning>
+
+## File Constraints
+
+| Constraint | Limit |
+|---|---|
+| Maximum image file size | 200 MB |
+| Maximum video file size | 2 GB |
+| File type detection | Marcel gem (content-based MIME detection) |
+
+## Error Responses
+
+| Status | Error | Cause |
+|---|---|---|
+| `401 Unauthorized` | `"unauthorized"` | Invalid or missing Bearer token |
+| `404 Not Found` | `"Asset not found"` | Variant endpoint: asset code does not exist |
+| `422 Unprocessable Entity` | `"Unable to read file"` | File cannot be read or accessed |
+| `422 Unprocessable Entity` | `"Failed to create variant"` | Variant creation failed during upload |
+| `422 Unprocessable Entity` | `"Failed to save asset"` | Asset record could not be saved |
+| `422 Unprocessable Entity` | `"File size exceeds maximum limit"` | File exceeds the size limit for its type |
+| `422 Unprocessable Entity` | `"Unsupported file type"` | MIME type could not be detected or is unsupported |
+| `422 Unprocessable Entity` | `"Upload failed"` | CDN storage upload failed |
+
+**Example error response body:**
+
+```json
+{
+  "error_message": "Validation failed",
+  "errors": {
+    "asset": {
+      "file": ["Unable to read file"],
+      "name": ["can't be blank"]
+    }
+  },
+  "meta": {
+    "request_id": "123e4567-e89b-12d3-a456-426614174000",
+    "timestamp": "2023-01-01T00:00:00Z"
+  }
+}
+```
+
+## UI-Based Uploads
+
+If you want to give end users a browser-based picker experience rather than uploading programmatically, use the DAM Picker SDK. It handles uploads, selection, and the `onSelect` callback without requiring you to call these endpoints directly.
+
+<Card title="DAM Picker SDK" icon="window" href="/guides/dam-picker-sdk">
+  Embed a full-featured asset picker modal in any web application.
+</Card>

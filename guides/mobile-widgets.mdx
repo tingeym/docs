@@ -1,0 +1,236 @@
+---
+title: "Integrate Fluid Commerce into Mobile Apps with Widgets"
+sidebarTitle: "Mobile Widgets"
+description: "Build Fluid mobile widgets as standalone web applications embedded via web views in iOS and Android apps, with token auth and dynamic height messaging."
+---
+
+Mobile widgets are standalone web applications that run inside embedded web views within Fluid's iOS and Android apps. They let you surface custom data — KPI dashboards, team performance summaries, bonus trackers, and more — directly inside the mobile app without building native screens. Fluid handles authentication by automatically appending an auth token to the widget URL when it loads; your widget reads that token, validates it against Fluid's API, and then fetches whatever backend data it needs. This guide walks you through the architecture, key concepts, and implementation steps.
+
+## Architecture
+
+Every mobile widget is composed of four layers that work together:
+
+<CardGroup cols={2}>
+  <Card title="Standalone Web Application" icon="globe">
+    Your widget is a self-contained web app hosted at its own HTTPS URL. Fluid loads that URL in a WebView inside the mobile app.
+  </Card>
+  <Card title="Authentication Layer" icon="lock">
+    Fluid automatically appends an auth token to the widget URL as a query parameter. Your widget reads the token, validates it with the Fluid API, and uses it for all subsequent requests.
+  </Card>
+  <Card title="Data Integration" icon="database">
+    Widgets can call both Fluid's APIs and your own backend APIs. Use the `external_id` from the authenticated user record as your primary user identifier.
+  </Card>
+  <Card title="Mobile App Integration" icon="mobile">
+    Widgets are registered in Fluid and embedded in the mobile app as WebViews. The app listens for PostMessage events to handle dynamic behavior.
+  </Card>
+</CardGroup>
+
+## Key Concepts
+
+### Authentication Tokens
+
+Fluid automatically generates an auth token for each user session and appends it to the widget URL when a user opens the widget in the mobile app. Your widget reads the token from the query string:
+
+```javascript
+const urlParams = new URLSearchParams(window.location.search);
+const authToken = urlParams.get('auth_token');
+```
+
+Validate the token by calling Fluid's user endpoint, passing the token in both the URL path and the `Authorization` header:
+
+```javascript
+const response = await fetch(`https://api.fluid.app/v2025-06/users/${authToken}`, {
+  headers: {
+    'Authorization': `Bearer ${authToken}`,
+    'Content-Type': 'application/json',
+  },
+});
+const { user_company } = await response.json();
+// user_company.external_id is your primary business identifier
+```
+
+### Dynamic Height Adjustment
+
+Widgets can resize themselves at runtime by posting a `HEIGHT_CHANGED` message to the mobile app via `ReactNativeWebView.postMessage()`. Heights are clamped between **100 px** and **1000 px** and animated over 300 ms.
+
+```javascript
+function requestHeightChange(height) {
+  if (typeof window.ReactNativeWebView === 'undefined') return;
+
+  window.ReactNativeWebView.postMessage(JSON.stringify({
+    type: 'HEIGHT_CHANGED',
+    height: height,
+  }));
+}
+
+// After rendering, measure content and request the right height:
+requestAnimationFrame(() => {
+  requestHeightChange(document.body.scrollHeight);
+});
+```
+
+### Full-Screen WebView Navigation
+
+Widgets can ask the mobile app to open a URL in a dedicated full-screen WebView by posting an `OPEN_FULLSCREEN_WEBVIEW` message.
+
+```javascript
+function openFullScreen(url) {
+  if (typeof window.ReactNativeWebView === 'undefined') {
+    window.open(url, '_blank'); // Fallback for desktop browsers
+    return;
+  }
+
+  window.ReactNativeWebView.postMessage(JSON.stringify({
+    type: 'OPEN_FULLSCREEN_WEBVIEW',
+    url: url,
+  }));
+}
+```
+
+### Embedded Scrolling Control
+
+The `scrollable` property on a registered widget controls whether the WebView allows internal scrolling. Set `scrollable: false` when your widget content fits within its height and you want the parent app to own all scroll gestures.
+
+## Implementation
+
+Follow these steps to build and register a mobile widget.
+
+<Steps>
+  <Step title="Create your widget web application">
+    Build a mobile-optimized web page that accepts an `auth_token` query parameter. Keep the HTML lean for mobile networks and always show a loading state while data fetches.
+
+    ```html
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body { margin: 0; padding: 10px; font-family: -apple-system, sans-serif; }
+        .loading { text-align: center; padding: 20px; }
+        .error   { color: #e74c3c; padding: 20px; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div id="widget-container"><div class="loading">Loading...</div></div>
+      <script src="widget.js"></script>
+    </body>
+    </html>
+    ```
+  </Step>
+
+  <Step title="Authenticate using Fluid's auth token system">
+    Extract the token from the URL, validate it with the Fluid API, and use the returned `external_id` as your primary user identifier for downstream data calls.
+
+    ```javascript
+    async function getFluidUser(authToken) {
+      const response = await fetch(`https://api.fluid.app/v2025-06/users/${authToken}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const uc = data.user_company || data;
+      return {
+        id: uc.id,
+        externalId: uc.external_id, // Use this as your business identifier
+        companyId: uc.company_id,
+        email: uc.email,
+        username: uc.username,
+      };
+    }
+    ```
+
+    <Warning>
+      Always check that `externalId` is present before making downstream calls. Users without an `external_id` cannot be linked to your business data.
+    </Warning>
+  </Step>
+
+  <Step title="Register the widget in Fluid">
+    Create a widget record in Fluid — either through the admin interface or the API — providing the embed URL, initial height, and page scope.
+
+    ```json
+    POST /api/company/mobile_widgets
+    Authorization: Bearer {company_admin_token}
+
+    {
+      "mobile_widget": {
+        "name": "KPI Dashboard",
+        "embed_url": "https://your-backend.com/widgets/kpi-dashboard",
+        "height": 400,
+        "cover_image_url": "https://your-cdn.com/widget-cover.jpg",
+        "page_scope": { "home": true, "explore": false },
+        "scrollable": true
+      }
+    }
+    ```
+
+    **Widget properties:**
+
+    | Property | Type | Required | Description |
+    |---|---|---|---|
+    | `name` | string | Yes | Display name shown in the app |
+    | `embed_url` | string | Yes | HTTPS URL of your widget application |
+    | `height` | integer | Yes | Initial height in pixels (100–1000) |
+    | `cover_image_url` | string | Yes | Preview image URL shown before the widget loads |
+    | `page_scope.home` | boolean | No | Show on the home page |
+    | `page_scope.explore` | boolean | No | Show on the explore page |
+    | `scrollable` | boolean | No | Enable internal WebView scrolling (default: `true`) |
+  </Step>
+
+  <Step title="Handle height adjustments in your widget">
+    After rendering your content, post a `HEIGHT_CHANGED` message so the mobile app resizes the WebView to fit. Use `requestAnimationFrame` to ensure the DOM has fully painted before measuring.
+
+    ```javascript
+    function autoAdjustHeight() {
+      if (typeof window.ReactNativeWebView === 'undefined') return;
+
+      requestAnimationFrame(() => {
+        const height = Math.max(100, Math.min(1000, document.body.scrollHeight));
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'HEIGHT_CHANGED',
+          height: height,
+        }));
+      });
+    }
+
+    // Call after every render:
+    render(data);
+    autoAdjustHeight();
+    ```
+
+    <Tip>
+      Debounce height change requests during rapid re-renders (e.g., animations or interval-based data refreshes) to avoid overwhelming the mobile app with PostMessage events.
+    </Tip>
+  </Step>
+</Steps>
+
+## Managing Widgets via API
+
+Use the Mobile Widgets API to list, update, or delete registered widgets.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/company/mobile_widgets` | List all widgets |
+| `GET` | `/api/company/mobile_widgets/{id}` | Get a single widget |
+| `POST` | `/api/company/mobile_widgets` | Create a widget |
+| `PUT` | `/api/company/mobile_widgets/{id}` | Update a widget (including resize) |
+| `DELETE` | `/api/company/mobile_widgets/{id}` | Delete a widget |
+
+To resize a widget programmatically, send a `PUT` request with an updated `height` value:
+
+```javascript
+async function resizeWidget(widgetId, newHeight, adminToken) {
+  await fetch(`/api/company/mobile_widgets/${widgetId}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${adminToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      mobile_widget: {
+        height: Math.max(100, Math.min(1000, newHeight)),
+      },
+    }),
+  });
+}
+```

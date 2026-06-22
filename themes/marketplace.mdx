@@ -1,0 +1,206 @@
+---
+title: "Submit Themes to the Fluid Theme Marketplace"
+sidebarTitle: "Marketplace"
+description: "Submit, review, and publish themes to the global Fluid Theme Marketplace for discovery, import, and distribution across the entire platform."
+---
+
+The Fluid Theme Marketplace is the global distribution layer for themes built on the Fluid platform. As a theme developer, you build a theme in the admin theme builder, export it as a ZIP file, and submit it for super admin review. Once approved, your theme is published to the marketplace where any Fluid company can discover it, preview a live demo, import it to their account, and customize it for their brand. This guide covers the full developer workflow — from building your theme to monitoring its approval status — along with the submission API, ZIP structure requirements, and quality standards.
+
+## Theme Developer Workflow
+
+<Steps>
+  <Step title="Build your theme in the admin panel">
+    Log in to your Fluid admin and navigate to **Themes** (`/themes`). Use the theme builder to design and develop your theme:
+
+    - Create templates for each page type (product, home page, shop page, cart, collections, etc.)
+    - Build section schemas with settings, blocks, and presets
+    - Upload theme assets — images, fonts, stylesheets, and JavaScript files
+    - Configure theme variables in `settings_schema.json`
+    - Preview each template to verify it looks correct before submission
+
+    The theme builder provides visual editing tools for both Liquid and JSON template formats.
+  </Step>
+  <Step title="Export your theme as a ZIP file">
+    Once your theme is complete and thoroughly tested:
+
+    1. Open your theme in the admin panel.
+    2. Click the **Export** or **Download** button to generate a ZIP file.
+    3. Verify the ZIP contains all required templates, assets, and configuration files.
+    4. Import the ZIP into a test environment and confirm it imports without errors.
+
+    The exported ZIP must follow the standard Fluid theme folder structure described below.
+  </Step>
+  <Step title="Submit as a Global Theme">
+    Navigate to `/themes` in your admin panel and use the global theme submission interface to upload your ZIP file and provide metadata:
+
+    - **Name** — A clear, descriptive theme name
+    - **Description** — What makes this theme distinctive and who it is designed for
+    - **Demo URL** — A live preview URL. Copy the preview URL from your theme in the theme library — this is available directly on the theme card and serves as the demo URL for marketplace visitors.
+    - **Changelog** — A summary of what this version includes (e.g., "Initial release with product and home page templates")
+
+    After you submit, the theme is created as a root theme with `draft` status and queued for super admin review.
+  </Step>
+  <Step title="Wait for super admin review">
+    Super admins review submitted themes in the platform's root admin settings panel. They check theme structure, code quality, responsiveness, accessibility, and compatibility. You will be notified of the outcome.
+
+    Themes can receive one of two outcomes:
+    - **Approved** — status moves to `publishing`, the theme is imported, then becomes `published` and live in the marketplace.
+    - **Rejected** — status moves to `rejected`. Review the feedback, address the issues, and resubmit a new version.
+  </Step>
+  <Step title="Theme is live in the marketplace">
+    Once published, your theme is publicly visible in the marketplace. Companies can browse it, view your demo URL, read the description, and import it to their account with a single click.
+  </Step>
+</Steps>
+
+## Theme ZIP Structure
+
+Your submitted ZIP file must follow this folder structure exactly:
+
+```
+theme-name/
+├── layout/
+│   └── theme.liquid
+├── home_page/
+│   └── default/
+│       ├── index.liquid    (or index.json)
+│       └── styles.css
+├── product/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── shop_page/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── cart_page/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── collection_page/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── navbar/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── footer/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── sections/
+│   └── [section-name]/
+│       ├── index.liquid
+│       └── styles.css
+├── assets/
+│   ├── theme.css
+│   ├── theme.js
+│   └── logo.png
+├── locales/
+│   ├── en.json
+│   └── es.json
+└── config/
+    └── settings_schema.json
+```
+
+## Submission API
+
+You can submit themes programmatically via the Fluid API instead of the admin interface.
+
+### Create a new global theme
+
+```http
+POST /api/root_themes
+```
+
+```json
+{
+  "name": "My Custom Theme",
+  "description": "A beautiful theme for e-commerce storefronts with bold typography and vibrant product galleries.",
+  "demo_url": "https://demo.example.com",
+  "zip_file_url": "https://cdn.example.com/themes/my-theme.zip",
+  "changelog": "Initial release with product, home, shop, cart, and collection page templates."
+}
+```
+
+### Update an existing global theme
+
+```http
+PUT /api/root_themes/:id
+```
+
+```json
+{
+  "zip_file_url": "https://cdn.example.com/themes/my-theme-v2.zip",
+  "changelog": "v2.0 — Added testimonial section, improved mobile nav, fixed cart page layout on small screens.",
+  "description": "Updated theme description reflecting new features.",
+  "demo_url": "https://demo.example.com/v2"
+}
+```
+
+Submitting an update creates a new theme version with `draft` status. The previously published version stays active until the new version is approved and published.
+
+## Version States
+
+| Status | Description |
+|--------|-------------|
+| `draft` | Submitted and awaiting super admin review |
+| `publishing` | Approved — import job is running |
+| `published` | Successfully imported and live in the marketplace |
+| `rejected` | Rejected by super admin — address feedback and resubmit |
+
+<Note>
+  Version history is maintained for all states. You can track the progression of each submitted version and reference previous changelogs.
+</Note>
+
+## Quality Standards
+
+Themes submitted to the marketplace must meet the following standards before approval:
+
+**Code Quality**
+- Clean, readable, well-commented Liquid and JSON code
+- No deprecated Fluid template features or unsupported filter usage
+- Proper error handling for missing variables (use `| default:` guards)
+- No hardcoded company-specific content or IDs
+
+**Design & Responsiveness**
+- Responsive layout that works correctly on mobile, tablet, and desktop viewports
+- Accessible UI — semantic HTML, ARIA labels, sufficient color contrast
+- Consistent styling across all included page templates
+- Modern, professional visual appearance
+
+**Performance**
+- Optimized asset loading — images resized via `img_url`, CSS and JS deferred where appropriate
+- Minimal external dependencies
+- No blocking render-critical resources
+
+**Completeness**
+- All required page templates present (`home_page`, `product`, `shop_page`, `cart_page`, `collection_page`, `navbar`, `footer`)
+- Locale files included for at least English (`locales/en.json`)
+- Theme variables defined in `config/settings_schema.json`
+- All asset references resolve correctly
+
+**Compatibility**
+- Works across all supported browsers
+- Compatible with Fluid's section and block rendering pipeline
+- No breaking changes to core platform functionality
+
+## Theme Discovery and Import
+
+Once your theme is published, marketplace visitors can find it in the following ways:
+
+**Theme Discovery**
+- **Browse** — View all published themes in the marketplace gallery
+- **Search** — Search by theme name or description keywords
+- **Filter** — Filter by category, features, or tags
+- **Demo** — Click the demo URL to preview the theme live before importing
+
+**Theme Import**
+When a company selects your theme from the marketplace:
+
+1. They click **Import** on the theme card.
+2. Fluid clones the root theme to their company account, creating a private company-owned copy.
+3. They customize the clone — colors, fonts, template overrides — without affecting your original.
+4. They activate it as their company's published theme.
+
+Your original marketplace theme is never modified by individual company imports. Every company gets their own isolated copy to customize freely.

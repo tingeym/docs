@@ -1,0 +1,285 @@
+---
+title: "Build and Publish Integration Apps with Fluid Droplets"
+sidebarTitle: "Droplets"
+description: "Create Droplets to integrate third-party services into the Fluid platform, embed custom UI into the admin, and publish your app on the Fluid Marketplace."
+---
+
+Droplets are first-class integration units on the Fluid platform. A Droplet packages your external service's UI (rendered in an iframe via your `embed_url`) together with lifecycle webhook handlers that let Fluid notify your service when a company installs or removes it. You build and maintain the Droplet under your own company account. It can remain private for internal use or, once approved by the Fluid team, become available to every company on the Fluid Marketplace.
+
+---
+
+## Creating a Droplet
+
+Send a `POST` request to `/api/droplets` to register a new Droplet.
+
+```http
+POST /api/droplets
+```
+
+```json
+{
+  "droplet": {
+    "name": "My Droplet",
+    "embed_url": "https://my-company.com/embed",
+    "install_webhook_url": "https://my-company.com/webhooks/droplet-installed",
+    "uninstall_webhook_url": "https://my-company.com/webhooks/droplet-uninstalled",
+    "active": true,
+    "settings": {
+      "marketplace_page": {
+        "title": "My Droplet",
+        "summary": "A Droplet for my company",
+        "logo_url": "https://my-company.com/logo.svg"
+      },
+      "details_page": {
+        "title": "My Droplet",
+        "summary": "A Droplet for my company",
+        "logo": "https://my-company.com/big-logo.svg",
+        "features": [
+          {
+            "name": "Feature 1",
+            "summary": "Feature 1 summary",
+            "details": "Feature 1 details",
+            "video_url": "https://my-company.com/feature-1.mp4"
+          },
+          {
+            "name": "Feature 2",
+            "summary": "Feature 2 summary",
+            "details": "Feature 2 details",
+            "image_url": "https://my-company.com/feature-2.svg"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `name` | Display name of the Droplet |
+| `embed_url` | URL Fluid loads in an iframe for companies using your Droplet. Fluid appends a `dri` (Droplet Request Identifier) query parameter automatically so your service can identify the installing company. |
+| `install_webhook_url` | HTTPS URL Fluid calls when a company installs your Droplet. Must use HTTPS in production. |
+| `uninstall_webhook_url` | HTTPS URL Fluid calls when a company removes your Droplet. Must use HTTPS in production. |
+| `active` | Whether the Droplet is enabled and available for use |
+| `settings` | Controls how the Droplet appears in the Marketplace (`marketplace_page`) and on its detail page (`details_page`) |
+
+<Note>
+Droplets are not visible in the Marketplace until the Fluid team approves them. You can install and test a Droplet internally before submitting for approval.
+</Note>
+
+---
+
+## The Installation Handshake
+
+Every time a company installs your Droplet, Fluid runs a secure server-to-server handshake. Your Droplet never receives long-lived credentials directly in a webhook — it exchanges a short-lived token for permanent credentials.
+
+<Steps>
+
+### Phase 1 — Configure Lifecycle Webhook URLs
+
+Set `install_webhook_url` and `uninstall_webhook_url` on the Droplet definition (either at creation time or via a `PUT` update). These URLs must be HTTPS and publicly reachable. Fluid calls only your Droplet's configured URLs — not every webhook registered on your account.
+
+### Phase 2a — Fluid Sends the `droplet_installed` Webhook
+
+When a company installs your Droplet from the Marketplace, Fluid POSTs a signed `droplet_installed` event to your `install_webhook_url`:
+
+```json
+{
+  "resource": "droplet",
+  "event": "installed",
+  "company": {
+    "droplet_installation_uuid": "dri_abc123def456",
+    "droplet_uuid": "drp_xyz789",
+    "fluid_company_id": 123,
+    "fluid_shop": "company.fluid.app",
+    "name": "Installing Company Name",
+    "credentials": {
+      "exchange_token": "dex_a1b2c3d4e5f6...",
+      "exchange_token_expires_at": "2026-03-11T12:10:00Z",
+      "exchange_endpoint": "/api/droplet_installations/exchange"
+    }
+  }
+}
+```
+
+The request is signed with three headers:
+
+| Header | Description |
+|---|---|
+| `X-Fluid-Shop` | The installing company's shop identifier |
+| `X-Fluid-Timestamp` | Unix timestamp when the request was signed |
+| `X-Fluid-Signature` | `HMAC-SHA256(droplet.webhook_secret, "{timestamp}.{raw_body}")` as lowercase hex |
+
+<Warning>
+The `exchange_token` (prefix `dex_`) is **single-use** and expires after **10 minutes**. Verify the signature, acknowledge the webhook immediately with a `200`, and exchange the token from a background job.
+</Warning>
+
+### Phase 2b — Exchange the Token for Credentials
+
+Call the exchange endpoint with the token from the install payload:
+
+```bash
+curl -X POST "https://api.fluid.app/api/droplet_installations/exchange" \
+  -H "Content-Type: application/json" \
+  -d '{"exchange_token": "dex_a1b2c3d4e5f6..."}'
+```
+
+The response returns:
+
+```json
+{
+  "droplet_installation": {
+    "droplet_installation_uuid": "dri_abc123def456",
+    "droplet_uuid": "drp_xyz789",
+    "fluid_company_id": 123,
+    "fluid_shop": "company.fluid.app"
+  },
+  "credentials": {
+    "authentication_token": "dit_xyz789...",
+    "webhook_verification_token": "wvt_abc123...",
+    "issued_at": "2026-03-11T12:00:05Z",
+    "token_type": "bearer"
+  }
+}
+```
+
+| Credential | Prefix | Use |
+|---|---|---|
+| `authentication_token` | `dit_` | `Authorization: Bearer dit_…` on every Fluid API call for this company |
+| `webhook_verification_token` | `wvt_` | HMAC key for verifying inbound business webhooks from this company |
+
+Exchange token rules:
+- A second call with the same token returns `410 Gone`
+- An expired token (>10 min) returns `410 Gone`
+- An invalid token returns `404 Not Found`
+
+### Phase 2c — Store Credentials and Set Up Resources
+
+After a successful exchange, persist the `authentication_token`, `webhook_verification_token`, and company details in your database. Then, optionally:
+
+- Register company-specific webhooks using the installation token
+- Create Drop Zones to embed content in the company's Fluid checkout or product pages
+
+### Phase 3 — Handle Uninstallation
+
+When a company removes your Droplet, Fluid POSTs a signed `droplet_uninstalled` event to your `uninstall_webhook_url`. The signing scheme (headers, HMAC algorithm, `dws_` key, 5-minute freshness window) is identical to the install webhook.
+
+```json
+{
+  "resource": "droplet",
+  "event": "uninstalled",
+  "company": {
+    "droplet_installation_uuid": "dri_abc123def456",
+    "droplet_uuid": "drp_xyz789",
+    "fluid_company_id": 123,
+    "fluid_shop": "company.fluid.app"
+  }
+}
+```
+
+On receipt, mark the company as inactive, delete any company-specific resources (Drop Zones, webhooks), and discard the stored `authentication_token` — it will be revoked by Fluid.
+
+</Steps>
+
+---
+
+## Verifying Webhook Signatures
+
+All lifecycle webhooks are signed with HMAC-SHA256. Verify every inbound request before acting on it.
+
+**Headers on every lifecycle webhook:**
+
+| Header | Value |
+|---|---|
+| `X-Fluid-Shop` | Shop identifier |
+| `X-Fluid-Timestamp` | Unix seconds as a string |
+| `X-Fluid-Signature` | HMAC-SHA256 hex digest |
+
+**Verification steps:**
+1. Reject the request if the timestamp is more than 5 minutes old (prevents replay attacks).
+2. Compute `HMAC-SHA256(webhook_secret, "{timestamp}.{raw_body}")`.
+3. Compare the result with `X-Fluid-Signature` using a constant-time function.
+
+```javascript
+const crypto = require('crypto');
+
+function verifySignature(secret, timestamp, body, signature) {
+  const payload  = `${timestamp}.${body}`;
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
+```
+
+<Warning>
+Always read the raw request body before parsing JSON. Recomputing the HMAC over a re-serialized object will not match the signature Fluid generated.
+</Warning>
+
+---
+
+## Identifying the Installing Company
+
+When a company opens your Droplet inside Fluid, the platform loads your `embed_url` in an iframe and automatically appends a `dri` (Droplet Request Identifier) query parameter:
+
+```
+# Your configured embed_url
+https://your-droplet.com/embed
+
+# Actual URL loaded by Fluid
+https://your-droplet.com/embed?dri=abc123xyz789
+```
+
+The `dri` value maps to the `DropletInstallation` record you stored during the handshake. Use it to:
+
+1. Look up the company in your database by `droplet_installation_uuid`
+2. Retrieve the stored `authentication_token`
+3. Make Fluid API calls on behalf of that company
+4. Load any company-specific configuration or data
+
+This pattern lets a single Droplet service securely handle many companies at once, with full data isolation between them.
+
+---
+
+## Token Scopes
+
+Installation tokens can be restricted to specific resource categories using scopes. Request only the scopes your Droplet actually needs.
+
+| Scope | Description |
+|---|---|
+| `main` | Core company resources |
+| `prospects` | Prospect and lead management |
+| `members` | Member management |
+| `web` | Web and storefront resources |
+| `settings` | Company configuration (required to register webhooks via the installation token) |
+| `products` | Product catalog |
+| `orders` | Order management |
+| `users` | User management |
+| `website` | Website pages and content |
+| `header_menus` | Navigation menus |
+| `payments` | Payment processing |
+
+Set `requested_scopes` on the Droplet definition at creation time. If no scopes are specified, the token defaults to all available scopes. Requests to resources outside the granted scopes return `403 Forbidden`.
+
+---
+
+## Quick Start Checklist
+
+Use this checklist when building a new Droplet from scratch:
+
+- [ ] Create the Droplet via the API or the Fluid interface
+- [ ] Configure `embed_url` for your Droplet's main UI
+- [ ] Set `install_webhook_url` (HTTPS) and `uninstall_webhook_url` (HTTPS)
+- [ ] Implement the install webhook handler:
+  - [ ] Verify the `X-Fluid-Signature` header
+  - [ ] Acknowledge with `200` immediately
+  - [ ] Extract the `exchange_token` from the payload in a background job
+  - [ ] Call `POST /api/droplet_installations/exchange`
+  - [ ] Persist `authentication_token`, `webhook_verification_token`, and company details
+  - [ ] Optionally create Drop Zones or register webhooks
+- [ ] Implement the uninstall webhook handler:
+  - [ ] Verify the `X-Fluid-Signature` header
+  - [ ] Mark the company as inactive
+  - [ ] Clean up Drop Zones, webhooks, and stored tokens
+- [ ] Handle the `dri` query parameter in your `embed_url` handler to identify the active company
+- [ ] Test locally with [ngrok](https://ngrok.com) to receive live webhooks during development
+- [ ] Deploy to production with HTTPS endpoints
+- [ ] Submit for Marketplace approval when ready to go public

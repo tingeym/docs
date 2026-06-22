@@ -1,0 +1,132 @@
+---
+title: "FairShare SDK: Add Commerce to Any Website in Minutes"
+sidebarTitle: "Overview"
+description: "Add Fluid commerce features—cart widgets, attribution, and lead capture—to any website using a single script tag. No build process required."
+---
+
+The FairShare SDK gives you a complete suite of commerce components and JavaScript APIs through a single `<script>` tag. Because it ships as a standalone bundle with automatic style injection, you can drop it into any HTML page without a build pipeline, a bundler, or a framework dependency. Whether you're running a vanilla HTML site, a WordPress blog, or a React application, the SDK works the same way.
+
+## Quick Start
+
+Add the following script tag to your page, then place components anywhere in your HTML:
+
+```html
+<script
+  id="fluid-cdn-script"
+  src="https://assets.fluid.app/scripts/fluid-sdk/latest/web-widgets/index.js"
+  data-fluid-shop="your-shop-id"
+></script>
+```
+
+Once the script is on the page, add components wherever you need them:
+
+```html
+<fluid-media library-id="your-library-id"></fluid-media>
+<fluid-attribution></fluid-attribution>
+```
+
+That's all the setup required. The SDK initializes automatically, fetches your shop configuration, and handles attribution in the background.
+
+## What's Included
+
+<CardGroup cols={2}>
+  <Card title="Web Components" icon="puzzle-piece">
+    Drop pre-built UI components anywhere on your page. Media, Playlist, Lead
+    Capture, Attribution, Country, User, and Language components are all
+    included and ready to use.
+  </Card>
+  <Card title="JavaScript API" icon="code">
+    Programmatically control cart operations, update locale settings, track
+    analytics events, and manage authentication through `window.FairShareSDK`.
+  </Card>
+  <Card title="Declarative HTML Controls" icon="brackets-curly">
+    Use `data-fluid-cart` and `data-fluid-add-to-cart` attributes to wire up
+    common actions without writing any JavaScript at all.
+  </Card>
+  <Card title="Automatic Attribution" icon="share-nodes">
+    Server-side attribution is calculated from the current page URL
+    automatically. Override it only when you need to explicitly assign a
+    specific affiliate.
+  </Card>
+</CardGroup>
+
+### Components
+
+| Component | Description |
+|---|---|
+| Media | Display media content with popover or inline modes |
+| Playlist | Display a collection of media items |
+| Lead Capture | Capture customer leads with configurable forms |
+| Attribution | Display affiliate attribution information |
+| Country | Country selector for locale settings |
+| User | Display authenticated user info and login/logout |
+| Language | Language selector for locale settings |
+
+### JavaScript API
+
+| API Group | Description |
+|---|---|
+| Cart Functions | Add items, update quantities, open/close the drawer, and check out |
+| Settings & Configuration | Manage locale, language, country, and shop configuration |
+| Events & Analytics | Track custom events, flush buffers, and retrieve attribution data |
+
+### Declarative HTML Controls
+
+Use data attributes for the most common cart actions without writing a single line of JavaScript:
+
+```html
+<!-- Open and close the cart drawer -->
+<button data-fluid-cart="open">View Cart</button>
+<button data-fluid-cart="close">Close Cart</button>
+
+<!-- Add a product to cart -->
+<button data-fluid-add-to-cart="123456">Add to Cart</button>
+```
+
+## How Configuration Works
+
+The SDK resolves settings through a three-layer priority system. Higher layers override lower ones:
+
+<Steps>
+  <Step title="API Settings (lowest priority)">
+    When the SDK initializes, it fetches your shop's default configuration—language, country, currency, and other defaults—from the Fluid API.
+  </Step>
+  <Step title="Script Tag Attributes">
+    Attributes on the `<script>` tag such as `data-fluid-shop`, `data-share-guid`, and `data-pusher-enabled` override the API defaults for every page load.
+  </Step>
+  <Step title="Your UI Code (highest priority)">
+    JavaScript calls made at runtime take the highest priority and overwrite any previously resolved value. Note that updates via code **replace** the existing value rather than merging with it.
+
+    ```javascript
+    // This overrides whatever the API returned
+    await window.FairShareSDK.updateLocaleSettings({
+      language: "es",
+      country: "MX",
+    });
+    ```
+  </Step>
+</Steps>
+
+## Key Benefits
+
+- **No build process required** — Works with any HTML page, no bundler needed
+- **Automatic style injection** — No separate CSS file to include or manage
+- **Server-side attribution** — Attribution is calculated automatically from the page URL
+- **Framework agnostic** — Works equally well with React, Vue, vanilla JS, or any other framework
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/sdk/fairshare/installation">
+    Configure the script tag, set data attributes, and learn best practices for
+    adding the SDK to your site.
+  </Card>
+  <Card title="JavaScript API" icon="terminal" href="/sdk/fairshare/javascript-api">
+    Explore the full `window.FairShareSDK` reference for cart management,
+    authentication, analytics, and more.
+  </Card>
+  <Card title="Components" icon="window" href="/sdk/fairshare/components">
+    Browse the complete set of web components and their available attributes and
+    configuration options.
+  </Card>
+</CardGroup>

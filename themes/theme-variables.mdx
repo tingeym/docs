@@ -1,0 +1,296 @@
+---
+title: "Configure Theme Variables for Brand Customization"
+sidebarTitle: "Theme Variables"
+description: "Use Fluid's theme CSS variables to control colors, typography, spacing, and layout across your storefront with a single settings configuration file."
+---
+
+Theme variables are JSON configuration values that map directly to CSS custom properties across your entire storefront. Instead of hard-coding brand colors or font stacks in dozens of template files, you define them once in your theme's settings schema, reference them in your layout's `:root` block, and consume them everywhere via `var(--property-name)`. This approach means a single settings change in the admin panel instantly updates the visual appearance of every page.
+
+## What Theme Variables Are
+
+Each variable corresponds to a setting defined in your `config/settings_schema.json` file. When a user saves a value in the theme editor (or you set defaults in the schema), Fluid stores that value and makes it available in any template as `{{ settings.<id> }}`. Your `layout/theme.liquid` file is the best place to bridge settings values into CSS custom properties so the entire stylesheet layer can consume them.
+
+## Defining Variables in settings_schema.json
+
+Define your theme-level settings in `config/settings_schema.json`. Group related settings using `header` type entries for organization:
+
+```json
+[
+  {
+    "name": "Brand Colors",
+    "settings": [
+      {
+        "type": "color",
+        "id": "primary_color",
+        "label": "Primary Color",
+        "default": "#2c5aa0"
+      },
+      {
+        "type": "color",
+        "id": "secondary_color",
+        "label": "Secondary Color",
+        "default": "#f8f9fa"
+      },
+      {
+        "type": "color",
+        "id": "accent_color",
+        "label": "Accent Color",
+        "default": "#e74c3c"
+      }
+    ]
+  },
+  {
+    "name": "Typography",
+    "settings": [
+      {
+        "type": "font_picker",
+        "id": "font_family",
+        "label": "Body Font",
+        "default": "Inter, sans-serif"
+      },
+      {
+        "type": "font_picker",
+        "id": "heading_font",
+        "label": "Heading Font",
+        "default": "Playfair Display, serif"
+      }
+    ]
+  },
+  {
+    "name": "Layout",
+    "settings": [
+      {
+        "type": "range",
+        "id": "container_width",
+        "label": "Container Max Width",
+        "min": 960,
+        "max": 1600,
+        "step": 40,
+        "unit": "px",
+        "default": 1200
+      },
+      {
+        "type": "select",
+        "id": "border_radius",
+        "label": "Border Radius Style",
+        "options": [
+          { "value": "0px",  "label": "Square" },
+          { "value": "4px",  "label": "Slightly Rounded" },
+          { "value": "8px",  "label": "Rounded" },
+          { "value": "16px", "label": "Very Rounded" }
+        ],
+        "default": "8px"
+      }
+    ]
+  }
+]
+```
+
+## Using Variables in Your Layout
+
+Inject settings values into CSS custom properties in `layout/theme.liquid`. Every template inherits these properties automatically:
+
+```html
+<!DOCTYPE html>
+<html lang="{{ localization.language.iso_code }}">
+  <head>
+    {{ content_for_header }}
+    <style>
+      :root {
+        --primary-color:    {{ settings.primary_color }};
+        --secondary-color:  {{ settings.secondary_color }};
+        --accent-color:     {{ settings.accent_color }};
+        --font-family:      {{ settings.font_family }};
+        --heading-font:     {{ settings.heading_font }};
+        --border-radius:    {{ settings.border_radius }};
+        --container-width:  {{ settings.container_width }}px;
+      }
+    </style>
+    <link rel="stylesheet" href="{{ 'theme.css' | asset_url }}">
+  </head>
+  <body>
+    {% section 'navbar' %}
+    {{ content_for_layout }}
+    {% section 'footer' %}
+  </body>
+</html>
+```
+
+Consume the custom properties in `assets/theme.css`:
+
+```css
+.container {
+  max-width: var(--container-width);
+  margin: 0 auto;
+  padding: 0 1rem;
+  font-family: var(--font-family);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--heading-font);
+  color: var(--primary-color);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border-radius: var(--border-radius);
+  color: #fff;
+}
+
+.btn-secondary {
+  background-color: var(--secondary-color);
+  border-radius: var(--border-radius);
+  color: var(--primary-color);
+}
+```
+
+You can also read settings values inline in any section template when you need them as attribute values rather than CSS properties:
+
+```liquid
+<div class="hero"
+     style="background-color: {{ settings.primary_color }}; border-radius: {{ settings.border_radius }};">
+  <h1 style="font-family: {{ settings.heading_font }};">{{ section.settings.heading }}</h1>
+</div>
+```
+
+## Global Variables
+
+The following variables are available in every template, regardless of page type. You do not need to declare them — Fluid injects them automatically.
+
+### `request`
+
+Contains information about the current HTTP request.
+
+```json
+{
+  "request": {
+    "path":             "Request path",
+    "host":             "Request host",
+    "page_type":        "Page type, e.g.: shop, product, enrollment_pack, library",
+    "query_parameters": "Hash of URL query parameters"
+  }
+}
+```
+
+### `company`
+
+Contains information about the active company storefront.
+
+```json
+{
+  "company": {
+    "id":            "Company ID",
+    "name":          "Company name",
+    "logo_url":      "Company logo URL",
+    "shop_page_url": "Shop page URL",
+    "checkout_url":  "Checkout URL",
+    "subdomain":     "Company subdomain",
+    "home_page_url": "Company home page URL",
+    "company_color": "Company primary color",
+    "points_label": {
+      "singular": "Configured singular label for rewards points (defaults to 'point')",
+      "plural":   "Configured plural label for rewards points (defaults to 'points')"
+    }
+  }
+}
+```
+
+### `localization`
+
+Contains language and country settings for the current visitor.
+
+```json
+{
+  "localization": {
+    "available_countries": [
+      {
+        "iso_code": "Country ISO code",
+        "name":     "Country name",
+        "currency": {
+          "iso_code": "Currency ISO code",
+          "name":     "Currency name",
+          "symbol":   "Currency symbol"
+        }
+      }
+    ],
+    "available_languages": [
+      { "iso_code": "Language ISO code", "name": "Language name" }
+    ],
+    "country":  "Current country object",
+    "language": "Current language object"
+  }
+}
+```
+
+### `affiliate`
+
+Contains information about the affiliate associated with the current storefront session.
+
+```json
+{
+  "affiliate": {
+    "web_rep_store_enabled":   "Whether the rep store banner should be shown",
+    "logged_in_rep_for_store": "Whether an affiliate is currently logged in",
+    "name":         "Affiliate display name",
+    "avatar":       "Affiliate avatar URL",
+    "initials":     "Affiliate initials",
+    "my_site_url":  "Affiliate MySite URL",
+    "sign_in_url":  "Sign-in URL",
+    "sign_out_url": "Sign-out URL"
+  }
+}
+```
+
+### Global collections
+
+The following arrays are available on all page types and give you access to store-wide data without needing a specific page context:
+
+| Variable | Contents |
+|----------|---------|
+| `products` | Array of products — each has `title`, `url`, `price`, `images[n].src`, `selected_or_first_available_variant.price` |
+| `collections` | Array of collections — each has `title` and a `products` array |
+| `enrollment_packs` | Array of enrollment packs — each has `title`, `price`, `images`, `description` |
+
+## Liquid Filters for Variables
+
+Use these filters when working with settings values and global variables in your templates:
+
+```liquid
+{# Read a theme setting value #}
+{{ settings.primary_color }}
+{{ settings.font_family }}
+
+{# Get a CDN URL for a theme asset #}
+{{ 'theme.css'  | asset_url }}
+{{ 'theme.js'   | asset_url }}
+{{ 'logo.png'   | asset_url }}
+
+{# Resize an image on the fly #}
+{{ image.url | img_url: '600x400' }}
+{{ image.url | img_url: '300x200', crop: 'center' }}
+
+{# Format a price as currency #}
+{{ product.price | money }}
+
+{# Translate a string using locale files #}
+{{ 'product.add_to_cart' | t }}
+{{ 'product.free_shipping' | t: amount: '$50' }}
+
+{# Use the configurable points label #}
+{{ product.points }} {{ company.points_label.plural }}
+```
+
+<Tip>
+  Each company can rename "Points" to their own brand label (for example, "Rain Cash" or "Make Rewards"). Always use `company.points_label.singular` and `company.points_label.plural` in templates instead of hard-coding the word "points" to respect each company's configuration.
+</Tip>
+
+## Adding Custom Global Variables
+
+You can extend the global variable set by creating a `variables.json` file at the root of your theme:
+
+```
+theme/
+└── variables.json
+```
+
+Define additional key-value pairs in that file and they become available in all templates via `{{ variable_name }}`, alongside the built-in globals.

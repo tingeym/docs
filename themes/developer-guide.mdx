@@ -1,0 +1,363 @@
+---
+title: "Build Fluid Themes with Liquid and JSON Sections"
+sidebarTitle: "Developer Guide"
+description: "Build and customize Fluid themes using Liquid templating, JSON section schemas, CSS variables, and asset management for your storefront."
+---
+
+Fluid themes are packages of Liquid templates, JSON section schemas, CSS, JavaScript, and image assets that define how your company's storefront looks and behaves. The system supports both traditional server-side Liquid rendering and a modern, component-based JSON section approach that powers the visual page editor. This guide walks you through every layer of the theme architecture so you can build themes confidently — from a minimal layout file to fully dynamic, configurable sections.
+
+## Theme Architecture
+
+A theme is distributed as a ZIP file with a specific folder structure. Every folder serves a distinct purpose:
+
+```
+theme/
+├── layout/
+│   └── theme.liquid          # Global page wrapper
+├── product/
+│   └── default/
+│       ├── index.liquid      # Product page template (Liquid or JSON)
+│       └── styles.css
+├── home_page/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── shop_page/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── navbar/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── footer/
+│   └── default/
+│       ├── index.liquid
+│       └── styles.css
+├── sections/
+│   └── hero_section/
+│       ├── index.liquid
+│       └── styles.css
+├── components/
+│   └── product_card/
+│       └── index.liquid
+├── assets/
+│   ├── theme.css
+│   ├── theme.js
+│   └── logo.png
+├── locales/
+│   ├── en.json
+│   └── es.json
+└── config/
+    └── settings_schema.json
+```
+
+## Layout File
+
+The `layout/theme.liquid` file is the structural foundation of your entire theme. Every page request is wrapped by this layout, which means it's the right place for your `<html>` document shell, global stylesheets, navigation, and footer.
+
+Two template variables are **required** in every layout:
+
+- `{{ content_for_header }}` — must appear inside `<head>`. Fluid injects all metadata, global scripts, and CSS needed to run the page correctly.
+- `{{ content_for_layout }}` — must appear inside `<body>`. Fluid replaces this with the rendered content of the current page template.
+
+Here is a minimal but complete layout:
+
+```html
+<!DOCTYPE html>
+<html lang="{{ localization.language.iso_code }}">
+  <head>
+    {{ content_for_header }}
+    <style>
+      :root {
+        --primary-color: {{ settings.primary_color }};
+        --secondary-color: {{ settings.secondary_color }};
+        --font-family: {{ settings.font_family }};
+        --heading-font: {{ settings.heading_font }};
+        --border-radius: {{ settings.border_radius }};
+        --container-width: {{ settings.container_width }};
+      }
+    </style>
+  </head>
+  <body>
+    {% section 'navbar' %}
+
+    {{ content_for_layout }}
+
+    {% section 'footer' %}
+
+    <script src="{{ 'theme.js' | asset_url }}" defer></script>
+  </body>
+</html>
+```
+
+<Warning>
+  Omitting `{{ content_for_header }}` or `{{ content_for_layout }}` will break your theme. Fluid relies on both variables to inject critical scripts and render page content correctly.
+</Warning>
+
+To use a different layout for a specific template, add `{% layout 'custom_layout' %}` at the top of that template file. To render a template with no layout at all, use `{% layout none %}`.
+
+## Template Types
+
+Each folder in your theme root (except `layout`, `sections`, `components`, `assets`, `locales`, and `config`) corresponds to a template type. Create a `default/` subfolder inside each type folder and add `index.liquid` (or `index.json`) along with `styles.css`.
+
+| Template | Purpose |
+|----------|---------|
+| `product` | Individual product pages |
+| `shop_page` | Shop and catalog pages |
+| `home_page` | Homepage layout |
+| `cart_page` | Shopping cart |
+| `medium` | Media post pages |
+| `enrollment_pack` | Enrollment pack pages |
+| `collection` | Individual collection page |
+| `collection_page` | List of collections |
+| `category_page` | List of categories |
+| `join_page` | List of enrollment packs |
+| `page` | Custom stand-alone pages |
+| `navbar` | Global navigation header |
+| `footer` | Global page footer |
+
+Each page type supports multiple named templates. For example, you can have `product/default/` and `product/featured/`. Only one template per type can be published at a time; the `default` template is always present as a fallback.
+
+## Sections
+
+Sections are reusable Liquid components that templates include and configure. Each section lives in its own subfolder under `sections/` and contains an `index.liquid` file with an embedded `{% schema %}` block that defines its configurable settings.
+
+```liquid
+<!-- sections/hero_section/index.liquid -->
+<section class="hero" style="background-color: {{ section.settings.background_color }};">
+  <div class="hero-content">
+    <h1>{{ section.settings.heading }}</h1>
+    <p>{{ section.settings.subtitle }}</p>
+
+    {% if section.settings.show_button %}
+      <a href="{{ section.settings.button_url }}" class="btn btn-primary">
+        {{ section.settings.button_label }}
+      </a>
+    {% endif %}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Hero Section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Welcome to Our Store"
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Subtitle",
+      "default": "Discover amazing products"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_button",
+      "label": "Show Button",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button Label",
+      "default": "Shop Now"
+    },
+    {
+      "type": "url",
+      "id": "button_url",
+      "label": "Button URL",
+      "default": ""
+    }
+  ]
+}
+{% endschema %}
+```
+
+Include a section inside a template using the `section` tag with an `id` parameter:
+
+```liquid
+{% section 'hero_section', id: 'hero_section' %}
+{% section 'featured_products', id: 'featured_products' %}
+```
+
+## Blocks
+
+Blocks are repeatable, reorderable content elements defined inside a section's schema. Users can add, remove, and reorder blocks through the visual editor. Define them in the `blocks` array of your section schema:
+
+```json
+{
+  "name": "Testimonials Section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "section_title",
+      "label": "Section Title",
+      "default": "What Our Customers Say"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "testimonial",
+      "name": "Customer Testimonial",
+      "limit": 10,
+      "settings": [
+        { "type": "text",     "id": "customer_name",    "label": "Customer Name" },
+        { "type": "textarea", "id": "testimonial_text", "label": "Testimonial" },
+        { "type": "range",    "id": "star_rating",      "label": "Star Rating",
+          "min": 1, "max": 5, "step": 1, "default": 5 }
+      ]
+    }
+  ]
+}
+```
+
+Render blocks in your section's Liquid template using a `for` loop:
+
+```liquid
+<div class="testimonials">
+  <h2>{{ section.settings.section_title }}</h2>
+
+  {% for block in section.blocks %}
+    <div class="testimonial"
+         data-fluid-section-block-id="{{ block.id }}"
+         data-fluid-section-block-type="{{ block.type }}">
+      {% case block.type %}
+        {% when 'testimonial' %}
+          <blockquote>{{ block.settings.testimonial_text }}</blockquote>
+          <cite>{{ block.settings.customer_name }}</cite>
+      {% endcase %}
+    </div>
+  {% endfor %}
+</div>
+```
+
+## Liquid Filters
+
+Fluid extends standard Liquid with several custom filters for common theming tasks:
+
+<CodeGroup>
+```liquid Image Resizing
+{{ image.url | img_url: '600x400' }}
+{{ image.url | img_url: '300x200', crop: 'center' }}
+```
+
+```liquid Currency Formatting
+{{ product.price | money }}
+```
+
+```liquid Asset URLs
+<link rel="stylesheet" href="{{ 'theme.css' | asset_url }}">
+<script src="{{ 'theme.js' | asset_url }}" defer></script>
+<img src="{{ 'banner.jpg' | asset_url }}" alt="Banner">
+```
+
+```liquid Translations
+{{ 'product.add_to_cart' | t }}
+{{ 'product.free_shipping' | t: amount: '$50' }}
+```
+
+```liquid Text Processing
+{{ text | truncate: 150 }}
+{{ text | strip_html }}
+{{ product.tags | join: ', ' }}
+```
+
+```liquid Date Formatting
+{{ product.created_at | date: '%B %d, %Y' }}
+```
+</CodeGroup>
+
+## CSS Variables
+
+Theme variables defined in your settings schema are injected into CSS as `:root` custom properties via your layout file. Reference any setting using `{{ settings.<id> }}` inside an inline `<style>` block in `theme.liquid`:
+
+```html
+<style>
+  :root {
+    --primary-color: {{ settings.primary_color }};
+    --secondary-color: {{ settings.secondary_color }};
+    --font-family: {{ settings.font_family }};
+    --heading-font: {{ settings.heading_font }};
+    --border-radius: {{ settings.border_radius }};
+    --container-width: {{ settings.container_width }};
+  }
+</style>
+```
+
+Then consume them throughout your stylesheets:
+
+```css
+.container {
+  max-width: var(--container-width);
+  font-family: var(--font-family);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border-radius: var(--border-radius);
+}
+```
+
+## Asset Management
+
+Store all theme-specific static files in the `assets/` folder. Fluid automatically processes every uploaded asset through a CDN and generates a permanent URL you can reference using the `asset_url` filter.
+
+| File Type | Can Upload | Can Edit |
+|-----------|-----------|---------|
+| CSS, JS, JSON | ✅ | ✅ |
+| Images, fonts, videos | ✅ | ❌ |
+
+```html
+<!-- Reference assets in any template or layout -->
+<link rel="stylesheet" href="{{ 'custom.css' | asset_url }}">
+<script src="{{ 'custom.js' | asset_url }}" defer></script>
+<img src="{{ 'logo.png' | asset_url }}" alt="{{ company.name }}">
+```
+
+<Note>
+  For files shared across multiple themes (e.g., a company-wide font), use **Sidebar → Website → Files** to store global assets instead of placing them inside a specific theme's `assets/` folder.
+</Note>
+
+## URL Routing
+
+Fluid's internal router maps URL patterns to template types automatically. You do not configure routes in your theme files.
+
+| URL Pattern | Template Used |
+|-------------|--------------|
+| `/` | `home_page` |
+| `/cart` | `cart_page` |
+| `/:credit/shop` | `shop_page` |
+| `/:credit/shop/:product_slug` | `product` |
+| `/:credit/collections` | `collection_page` |
+| `/:credit/collections/:slug` | `collection` |
+| `/:credit/enrollments/:token` | `enrollment_pack` |
+| `/:credit/library/:slug` | `library` |
+| `/:credit/page/:slug` | `page` |
+
+## Frequently Asked Questions
+
+<Accordion title="What is the easiest way to start building a new theme?">
+  The quickest path is to customize one of Fluid's root themes directly. Navigate to **Sidebar → Website → Themes**, click **Customize** on the Base, Vox, or Fluid theme, and start editing. If you want to preserve the original, download the theme as a ZIP file and re-import it — this creates a fresh company-owned copy you can modify freely.
+</Accordion>
+
+<Accordion title="If I switch themes, will my templates be lost?">
+  No. Your templates are stored independently and are not deleted when you change your active theme. Switching themes only changes which theme is published and visible to customers. All your custom templates remain available in the theme editor.
+</Accordion>
+
+<Accordion title="How do I roll back to a previous template version?">
+  Open the template in the theme editor, click the **Versions** dropdown in the toolbar, and select the version you want to restore. Click **Preview** to verify it looks correct, then click **Publish** to make it live. Every save creates a new version, so you always have a full history to roll back to.
+</Accordion>
+
+<Accordion title="How are theme images served?">
+  Upload images to the `assets/` folder in your theme. Fluid processes them through Filestack and generates a CDN URL for each file. Reference that URL in your templates using `{{ 'image.jpg' | asset_url }}`. Use the `img_url` filter to request resized versions on the fly: `{{ image.url | img_url: '600x400' }}`.
+</Accordion>

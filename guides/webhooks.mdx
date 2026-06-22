@@ -1,0 +1,269 @@
+---
+title: "Receive Real-Time Fluid Webhook Event Notifications"
+sidebarTitle: "Webhooks"
+description: "Set up, configure, and secure Fluid webhooks to receive real-time event notifications for orders, carts, subscriptions, customers, and more."
+---
+
+Webhooks let your application receive instant HTTP notifications whenever something meaningful happens in your Fluid environment — a new order, a cart update, a subscription change, and dozens of other events. Rather than polling the API repeatedly to check for changes, you register an endpoint once and Fluid pushes data to you the moment the event fires. This makes your integrations faster, cheaper to run, and far easier to reason about.
+
+## Creating a Webhook
+
+Send a `POST` request to `/api/company/webhooks` with your company token to register a new webhook endpoint.
+
+```bash
+curl -X POST "https://api.fluid.app/api/company/webhooks" \
+  -H "Authorization: Bearer YOUR_COMPANY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"resource": "order", "event": "created", "url": "https://your-app.com/webhooks/orders"}'
+```
+
+### Required Parameters
+
+<ParamField body="resource" type="string" required>
+  The type of resource to monitor. Accepted values include `"order"`, `"cart"`, and `"customer"`.
+</ParamField>
+
+<ParamField body="event" type="string" required>
+  The specific event to listen for on that resource. Examples: `"created"`, `"updated"`, `"completed"`.
+</ParamField>
+
+<ParamField body="url" type="string" required>
+  Your HTTPS endpoint URL that will receive the webhook `POST` request. HTTP endpoints are not accepted in production.
+</ParamField>
+
+### Optional Parameters
+
+<ParamField body="http_method" type="string" default="post">
+  The HTTP method Fluid uses when calling your endpoint. Defaults to `"post"`.
+</ParamField>
+
+<ParamField body="auth_token" type="string">
+  A custom token Fluid will send in the `AUTH_TOKEN` header of every delivery, so you can verify the request came from Fluid. If omitted, Fluid generates one automatically and returns it in the response.
+</ParamField>
+
+<ParamField body="synchronous" type="boolean" default="false">
+  When `true`, Fluid waits for your endpoint to respond before continuing the triggering operation. Use sparingly — your endpoint must respond quickly to avoid delaying the user's experience.
+</ParamField>
+
+---
+
+## Managing Webhooks
+
+### List All Webhooks
+
+```bash
+curl -X GET "https://api.fluid.app/api/company/webhooks" \
+  -H "Authorization: Bearer YOUR_COMPANY_TOKEN"
+```
+
+### Update a Webhook
+
+```bash
+curl -X PUT "https://api.fluid.app/api/company/webhooks/123" \
+  -H "Authorization: Bearer YOUR_COMPANY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhook": {
+      "url": "https://your-app.com/new-webhook-endpoint",
+      "auth_token": "new-auth-token"
+    }
+  }'
+```
+
+### Delete a Webhook
+
+```bash
+curl -X DELETE "https://api.fluid.app/api/company/webhooks/123" \
+  -H "Authorization: Bearer YOUR_COMPANY_TOKEN"
+```
+
+---
+
+## Available Events
+
+<Accordion title="Cart Events">
+| Event | Description |
+|---|---|
+| `cart_updated` | Cart contents or details were modified |
+| `cart_abandoned` | Cart was considered abandoned per company settings |
+| `cart_update_address` | Shipping or billing address was updated |
+| `cart_update_cart_email` | The cart email address was changed |
+| `cart_add_items` | One or more items were added to the cart |
+| `cart_remove_items` | One or more items were removed from the cart |
+</Accordion>
+
+<Accordion title="Order Events">
+| Event | Description |
+|---|---|
+| `order_created` | A new order was placed |
+| `order_updated` | Order details were modified |
+| `order_completed` | Order was marked as delivered / completed |
+| `order_shipped` | Order was marked as shipped |
+| `order_cancelled` | Order was cancelled |
+| `order_refunded` | A refund was processed for the order |
+</Accordion>
+
+<Accordion title="Product Events">
+| Event | Description |
+|---|---|
+| `product_created` | A new product was added |
+| `product_updated` | Product details were modified |
+| `product_destroyed` | A product was deleted |
+</Accordion>
+
+<Accordion title="Subscription Events">
+| Event | Description |
+|---|---|
+| `subscription_started` | A new subscription was activated |
+| `subscription_paused` | A subscription was paused |
+| `subscription_cancelled` | A subscription was cancelled |
+</Accordion>
+
+<Accordion title="Customer & Contact Events">
+| Event | Description |
+|---|---|
+| `customer_created` | A new customer account was created |
+| `customer_updated` | Customer information was modified |
+| `contact_created` | A new contact or lead was added |
+| `contact_updated` | Contact information was updated |
+</Accordion>
+
+<Accordion title="System Events">
+| Event | Description |
+|---|---|
+| `user_created` | A new user account was created |
+| `user_updated` | User information was modified |
+| `user_deactivated` | A user account was deactivated |
+| `enrollment_completed` | A user's enrollment process finished |
+| `event_created` | A custom event was created |
+| `event_updated` | A custom event was modified |
+| `event_deleted` | A custom event was removed |
+</Accordion>
+
+<Accordion title="Integration Events">
+| Event | Description |
+|---|---|
+| `droplet_installed` | A Droplet app was installed |
+| `droplet_uninstalled` | A Droplet app was removed |
+| `bot_message_created` | A bot message was sent |
+| `popup_submitted` | A popup form was submitted |
+| `webchat_submitted` | A web chat form was submitted |
+</Accordion>
+
+---
+
+## Sample Payloads
+
+All webhook deliveries share the same top-level envelope. The `payload` object contains the event-specific data.
+
+```json
+{
+  "id": "whe_1234567890abcdef",
+  "identifier": "whe_unique_identifier",
+  "name": "order_created",
+  "payload": {
+    "event_name": "order_created",
+    "company_id": 1,
+    "resource_name": "Commerce::Order",
+    "resource": "order",
+    "event": "created",
+    "order": {
+      "subtotal": 99.99,
+      "tax": 8.50,
+      "discount": 10.00,
+      "shipping": 5.99
+    }
+  },
+  "timestamp": "2024-01-01T12:00:00Z"
+}
+```
+
+| Field | Description |
+|---|---|
+| `id` | Unique webhook event ID |
+| `identifier` | Unique opaque identifier — use this for idempotency checks |
+| `name` | Event name, mirrors `payload.event_name` |
+| `payload.event_name` | The specific event that occurred |
+| `payload.company_id` | Your company's ID |
+| `payload.resource_name` | Full class name of the resource |
+| `payload.resource` | Short resource type (`order`, `cart`, `customer`, …) |
+| `payload.event` | Event type (`created`, `updated`, …) |
+| `timestamp` | ISO 8601 timestamp of when the event fired |
+
+---
+
+## Security
+
+Every webhook delivery from Fluid includes two authentication headers you should validate before processing the payload.
+
+### Authentication Headers
+
+```http
+POST /your-webhook-endpoint HTTP/1.1
+Host: your-app.com
+Content-Type: application/json
+AUTH_TOKEN: your_webhook_auth_token
+X-Fluid-Shop: your-company-subdomain
+```
+
+- **`AUTH_TOKEN`** — your webhook verification token, set when the webhook was created
+- **`X-Fluid-Shop`** — your company's Fluid subdomain identifier
+
+### Token Verification
+
+Compare the `AUTH_TOKEN` header value against the token you stored when you created the webhook. Always use a constant-time comparison to prevent timing attacks:
+
+```ruby
+# Ruby example
+def verify_webhook(request)
+  received_token = request.headers['AUTH_TOKEN']
+  expected_token = ENV['WEBHOOK_AUTH_TOKEN']
+  ActiveSupport::SecurityUtils.secure_compare(received_token, expected_token)
+end
+```
+
+### Company Verification
+
+Cross-check the `X-Fluid-Shop` header against the subdomain you expect:
+
+```ruby
+def verify_company(request)
+  request.headers['X-Fluid-Shop'] == ENV['COMPANY_SUBDOMAIN']
+end
+```
+
+### Security Best Practices
+
+<Tip>
+Rotate your `auth_token` periodically by sending a `PUT` to `/api/company/webhooks/:id` with a new token value. Update the stored value in your environment at the same time.
+</Tip>
+
+- **Use HTTPS only.** Never configure an HTTP endpoint for webhook delivery.
+- **Validate every request.** Check both `AUTH_TOKEN` and `X-Fluid-Shop` before processing.
+- **Log webhook calls.** Retain a record of every delivery so you can investigate anomalies.
+- **Store tokens securely.** Use environment variables or a secrets manager — never hard-code tokens.
+- **Implement idempotency.** Store the `identifier` field and skip processing if you've seen it before; Fluid may deliver the same event more than once.
+
+---
+
+## Retry Behavior
+
+<Note>
+Fluid retries failed webhook deliveries up to **5 times** using exponential backoff. Each request has a **10-second timeout**. If your endpoint returns a non-2xx status code or does not respond within 10 seconds, Fluid counts the attempt as failed and schedules a retry.
+</Note>
+
+To avoid triggering retries, return an HTTP `200` as soon as you've safely accepted the payload, then do any slow processing in a background job.
+
+---
+
+## Testing
+
+During local development, use [ngrok](https://ngrok.com) to expose your local server to the internet so Fluid can reach it:
+
+```bash
+# Expose your local server running on port 3000
+ngrok http 3000
+# Fluid can now POST to https://abc123.ngrok.io/webhooks/orders
+```
+
+Update your webhook's URL to the ngrok HTTPS address, install the event, and trigger it from the Fluid admin. The ngrok inspector at `http://localhost:4040` lets you inspect payloads and replay requests without re-triggering the event.

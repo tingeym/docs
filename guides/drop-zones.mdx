@@ -1,0 +1,98 @@
+---
+title: "Inject External Services into Fluid with Drop Zones"
+sidebarTitle: "Drop Zones"
+description: "Embed external services in specific Fluid UI locations using Drop Zones, and interact with the live cart using automatically appended cart tokens."
+---
+
+Drop Zones let you inject external content directly into the Fluid storefront and checkout experience. Each Drop Zone is a named location within the Fluid UI where an iframe pointing to your `embed_url` is rendered. When a shopper reaches that location — say, the fast-checkout screen or the product detail page — Fluid loads your URL inside the iframe and automatically passes context about the active cart so your service can read and interact with it in real time.
+
+---
+
+## Common Drop Zone Locations
+
+When you create a Drop Zone, you specify where it should appear. The most frequently used locations are:
+
+| Location | Where it renders |
+|---|---|
+| `above_fast_checkout` | Above the primary checkout button |
+| `below_product_details` | Below the product information block on a product page |
+| `cart_sidebar` | Inside the shopping cart sidebar panel |
+
+---
+
+## How Drop Zones Work
+
+Creating a Drop Zone requires two pieces of information:
+
+- **Location** — one of the named slots listed above (or any other slot supported by your Fluid setup)
+- **Embed URL** — the HTTPS URL of the page your service serves to be loaded in the iframe
+
+Once the Drop Zone is active, Fluid renders your URL at the specified location whenever a shopper reaches it. Fluid appends URL parameters to every load so your service always has context about the current session.
+
+---
+
+## URL Parameters
+
+Fluid automatically appends query parameters to your embed URL each time the Drop Zone is rendered. You do not need to handle these manually — just read them from the incoming request.
+
+### Token Parameter
+
+A cart token is always appended to every Drop Zone URL. Use this token to interact with the cart on behalf of the shopper.
+
+```
+# Your configured embed URL
+https://external-service.com/cart-widget
+
+# Rendered URL (token appended automatically)
+https://external-service.com/cart-widget?token=cart_abc123xyz
+```
+
+### Company ID Parameter
+
+In a B2B context, when the cart is associated with a specific company, Fluid also appends `company_id`:
+
+```
+https://external-service.com/cart-widget?token=cart_abc123xyz&company_id=comp_789def
+```
+
+Use the `company_id` parameter to:
+
+- Identify the company placing the order
+- Apply company-specific pricing or discounts
+- Enforce company purchasing policies
+- Display company-specific content or branding
+
+---
+
+## What You Can Do With the Cart Token
+
+Once your embedded service receives the `token` parameter, you can use the [Cart APIs](https://docs.fluid.app/docs/openapi/carts-v0) to read and modify the active cart in real time. Available operations include:
+
+- **Update item quantities** — increase or decrease the quantity of any line item
+- **Add or remove items** — add new products or remove existing ones from the cart
+- **Calculate shipping costs** — retrieve shipping options and estimated costs
+- **Process payments through external payment services** — integrate your own payment flow alongside or instead of the default checkout
+- **Apply discounts or promotions** — attach discount codes or promotional pricing to the cart
+- **Modify cart metadata** — store custom key-value data on the cart for downstream processing
+
+<Tip>
+Pass the `token` value directly in your Cart API requests as the cart identifier. All Cart API operations are scoped to the cart represented by the token, so you can't accidentally modify a different shopper's cart.
+</Tip>
+
+---
+
+## Example: Full Drop Zone URL
+
+A rendered Drop Zone URL with both parameters looks like this:
+
+```
+https://external-service.com/cart-widget?token=cart_abc123xyz&company_id=comp_789def
+```
+
+Your service reads `token` and `company_id` from the query string on every page load, then uses the token to make authenticated cart API calls on the shopper's behalf.
+
+---
+
+## Cart API Reference
+
+For the full list of cart endpoints and request/response schemas, see the [Cart APIs documentation](https://docs.fluid.app/docs/openapi/carts-v0).

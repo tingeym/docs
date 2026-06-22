@@ -1,0 +1,174 @@
+---
+title: "Build a Shopping Cart with Real-Time Updates"
+sidebarTitle: "Shopping Cart"
+description: "Build a fully featured shopping cart using the Fluid API — live product data, client-side cart state management, and real-time webhook notifications."
+---
+
+The Fluid API gives you everything you need to build a high-quality shopping cart experience from scratch — live product data, client-side cart state management, and real-time event notifications via webhooks. This guide walks you through fetching product information, storing cart state on the client, and wiring up webhooks to keep every connected session in sync.
+
+## Fetching Product Information
+
+When a customer lands on a product page or browses the catalog, your application should fetch product details from the Fluid API. Use the `/company/v1/products/:id` endpoint, replacing `myco` with your company's subdomain.
+
+```bash
+GET https://myco.fluid.app/api/company/v1/products/{productId}
+```
+
+The response includes the product's title, description, price, and variants (with per-country pricing). You can also filter the product list by category, availability, and other parameters — see the [Catalog API Reference](/docs/openapi/catalog-v1) for the full parameter list.
+
+```javascript
+const fetchProductDetails = async (productId) => {
+  const url = `https://myco.fluid.app/api/company/v1/products/${productId}`
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer YOUR_COMPANY_TOKEN',
+    },
+  })
+  const data = await response.json()
+  return data
+}
+
+// Example: fetch product 2260
+const productData = await fetchProductDetails(2260)
+console.log(productData)
+```
+
+<Tip>
+  Cache product responses on the client for the duration of a browsing session to reduce API calls. Invalidate the cache when you receive a `cart_updated` webhook event that affects pricing.
+</Tip>
+
+## Adding Items to Cart
+
+When a customer clicks **Add to Cart**, store the product ID, variant ID, and quantity in the client. Local storage works well for anonymous sessions; swap in a server-side store or database once the customer authenticates.
+
+```javascript
+const addToCart = (productId, quantity) => {
+  const cartItems = JSON.parse(localStorage.getItem('cartItems')) || []
+  const existingItem = cartItems.find((item) => item.productId === productId)
+
+  if (existingItem) {
+    existingItem.quantity += quantity
+  } else {
+    cartItems.push({ productId, quantity })
+  }
+
+  localStorage.setItem('cartItems', JSON.stringify(cartItems))
+}
+
+// Add two units of product 2260
+addToCart(2260, 2)
+```
+
+After updating local storage, refresh the cart display so the customer sees the latest item count and subtotal:
+
+```javascript
+const updateCartDisplay = async () => {
+  const cartItems = JSON.parse(localStorage.getItem('cartItems')) || []
+  const cartElement = document.getElementById('cart')
+  cartElement.innerHTML = '' // Clear previous content
+
+  for (const item of cartItems) {
+    const productDetails = await fetchProductDetails(item.productId)
+    // Create and append HTML elements for each item
+    const el = document.createElement('div')
+    el.textContent = `${productDetails.title} × ${item.quantity}`
+    cartElement.appendChild(el)
+  }
+}
+```
+
+## Real-Time Updates with Webhooks
+
+Webhooks let your server receive instant notifications when cart state changes in Fluid — no polling required. Follow these steps to set up real-time cart sync.
+
+<Steps>
+
+  <Step title="Create a Webhook Endpoint">
+
+    Add a POST route to your server that Fluid can call when events occur. The handler should parse the incoming JSON body, process the event, and respond with `200` to acknowledge receipt.
+
+    ```javascript
+    // Express.js example
+    app.post('/webhook', async (req, res) => {
+      const event = req.body
+
+      if (event.name === 'cart_updated') {
+        const updatedCart = event.payload.cart
+        // Sync the updated cart to connected clients
+        updateCartDisplay(updatedCart)
+      } else if (event.name === 'cart_abandoned') {
+        // Trigger a recovery flow (e.g. send a reminder email)
+        handleAbandonedCart(event.payload.cart)
+      }
+
+      res.sendStatus(200)
+    })
+    ```
+
+    <Note>
+      Always return a `200` status code promptly. If your handler takes too long, Fluid may retry the delivery. Offload heavy processing to a background job.
+    </Note>
+
+  </Step>
+
+  <Step title="Register Your Endpoint with Fluid">
+
+    Register your webhook URL via the Fluid API and subscribe to the events you need. At minimum, subscribe to `cart_updated` and `cart_abandoned` for a shopping cart integration.
+
+    ```bash
+    curl -X POST "https://myco.fluid.app/api/company/v1/webhooks" \
+      -H "Authorization: Bearer YOUR_COMPANY_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "webhook": {
+          "url": "https://yourapp.com/webhook",
+          "events": ["cart_updated", "cart_abandoned"]
+        }
+      }'
+    ```
+
+  </Step>
+
+  <Step title="Handle Webhook Payloads">
+
+    Fluid sends a JSON body to your endpoint for each subscribed event. The `cart_updated` payload contains the full updated cart object:
+
+    ```json
+    {
+      "name": "cart_updated",
+      "payload": {
+        "cart": {
+          "token": "CT-SECURE_TOKEN_XYZ",
+          "email": "customer@example.com",
+          "items": [
+            {
+              "variant_id": 8841,
+              "quantity": 2,
+              "price": "29.99"
+            }
+          ],
+          "subtotal": "59.98",
+          "total": "64.97"
+        }
+      }
+    }
+    ```
+
+    For `cart_abandoned`, the payload has the same structure. Use it to trigger recovery automations such as reminder emails or discount offers.
+
+  </Step>
+
+</Steps>
+
+## Client-Side Sync
+
+Webhooks push updates from the server to your backend, but you also need a strategy to propagate those changes to the customer's open browser tab. Two common approaches are:
+
+- **WebSockets** — establish a persistent bidirectional connection between your server and the client. When your webhook handler receives a `cart_updated` event, broadcast the updated cart over the WebSocket to all sessions holding that cart token.
+
+- **Server-Sent Events (SSE)** — a lighter-weight, server-push-only alternative. The client opens a long-lived HTTP connection and receives a stream of updates. SSE is simpler to implement than WebSockets and works well for one-directional cart state sync.
+
+<Tip>
+  For most shopping cart implementations, SSE is sufficient and easier to scale. Reserve WebSockets for use cases that require bidirectional real-time communication (for example, collaborative wishlists or live inventory countdowns).
+</Tip>

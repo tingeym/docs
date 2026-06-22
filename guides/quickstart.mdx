@@ -1,0 +1,106 @@
+---
+title: "Get Started with Fluid: Your First API Call"
+sidebarTitle: "Quickstart"
+description: "Make your first Fluid API call in minutes. This guide walks you through getting an API token and querying the Fluid API with a live curl example."
+---
+
+Fluid's API gives you programmatic access to your we-commerce platform — products, enrollments, orders, media, and more. This guide walks you through signing up, generating an API token, and making your very first authenticated request so you can start building integrations right away.
+
+<Steps>
+
+  <Step title="Sign up and get an API token">
+    Before you can call the Fluid API, you need a company token. Company tokens grant full administrative access to your company's data and settings.
+
+    1. Navigate to your Fluid developer settings at [https://www.fluid.app/settings/developer](https://www.fluid.app/settings/developer).
+    2. Locate the **Developer** section on that page.
+    3. Click **Generate** (or **New Token**) to create a new company token.
+    4. Copy the token and store it somewhere secure — treat it like a password.
+
+    <Warning>
+      Never commit your API token to source control or expose it in client-side code. Store it in an environment variable or a secrets manager.
+    </Warning>
+
+    <Tip>
+      If you are building a third-party integration or an automated system, consider using a **Partner Token** instead. Partner tokens support expiration dates for tighter security and can be managed programmatically via `/api/v2025-06/partner_tokens`.
+    </Tip>
+  </Step>
+
+  <Step title="Make your first API call">
+    With your token in hand, you are ready to make your first request. The example below calls `GET /api/companies` to retrieve the companies your token has access to.
+
+    Include your token in the `Authorization` header using the Bearer scheme:
+
+    ```
+    Authorization: Bearer <your_token>
+    ```
+
+    Run the following command in your terminal, replacing `your_company_token` with the token you generated:
+
+    <CodeGroup>
+
+    ```bash cURL
+    curl -X GET https://api.fluid.app/api/companies \
+      -H "Authorization: Bearer your_company_token"
+    ```
+
+    ```javascript Node.js
+    const response = await fetch("https://api.fluid.app/api/companies", {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer your_company_token",
+      },
+    });
+
+    const data = await response.json();
+    console.log(data);
+    ```
+
+    ```python Python
+    import requests
+
+    response = requests.get(
+        "https://api.fluid.app/api/companies",
+        headers={"Authorization": "Bearer your_company_token"},
+    )
+
+    print(response.json())
+    ```
+
+    </CodeGroup>
+
+    A successful response returns a JSON object containing your company's details. If you receive a `401 Unauthorized` error, double-check that your token is correct and that the `Authorization` header is formatted exactly as shown above.
+
+    <Note>
+      All Fluid API requests must be made over HTTPS. Plain HTTP requests will be rejected.
+    </Note>
+  </Step>
+
+  <Step title="Explore what you can build">
+    You have made your first authenticated Fluid API call — now explore the rest of the platform. The cards below point you to the most common next steps.
+
+    <CardGroup cols={3}>
+      <Card
+        title="Headless Commerce"
+        icon="store"
+        href="/guides/headless-commerce"
+      >
+        Build custom storefronts powered by the Fluid API without using the default themes.
+      </Card>
+      <Card
+        title="Webhooks"
+        icon="webhook"
+        href="/guides/webhooks"
+      >
+        Subscribe to real-time events like orders, enrollments, and payments to keep your systems in sync.
+      </Card>
+      <Card
+        title="Droplets"
+        icon="puzzle-piece"
+        href="/guides/droplets"
+      >
+        Install or build pre-integrated we-commerce apps that connect seamlessly to your Fluid platform.
+      </Card>
+    </CardGroup>
+  </Step>
+
+</Steps>

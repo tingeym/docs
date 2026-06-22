@@ -1,0 +1,207 @@
+---
+title: "Create Affiliate MySite Themes for Fluid Reps"
+sidebarTitle: "MySite Themes"
+description: "Develop and deploy MySite themes to customize the affiliate-facing personal pages for Fluid reps, including layout, CSS classes, and Liquid variables."
+---
+
+MySite themes control the personal affiliate pages that every Fluid rep gets as their own branded storefront presence. Unlike company-wide storefront themes, a MySite theme is the public-facing page that belongs to an individual affiliate — it typically displays their avatar, bio, social links, and curated product or content links. Once a MySite theme is built and submitted to the platform, company admins can access it through **Sidebar → Website → MySite Theme** in the admin panel to preview, customize, and publish it to their reps' personal pages.
+
+## Prerequisites
+
+Before you start building a MySite theme, ensure you have:
+
+- Access to the Fluid development environment
+- Working knowledge of the Liquid templating language
+- The [Fluid CLI](/themes/cli) installed and authenticated (for pushing themes to the platform)
+
+## Development Workflow
+
+<Steps>
+  <Step title="Create the theme file structure">
+    Scaffold the required files for your new theme. Replace `YOUR_THEME_NAME` with a lowercase, underscore-separated name (e.g., `canvas_light`):
+
+    ```bash
+    mkdir -p mysite/YOUR_THEME_NAME/
+    touch mysite/YOUR_THEME_NAME/index.liquid
+    touch mysite/YOUR_THEME_NAME/styles.css
+    touch mysite/YOUR_THEME_NAME/script.js  # optional
+    ```
+
+    The final directory tree should look like this:
+
+    ```
+    mysite/
+    ├── YOUR_THEME_NAME/
+    │   ├── index.liquid   # Main template
+    │   ├── styles.css     # Theme-specific styles
+    │   └── script.js      # Optional JavaScript
+    ```
+  </Step>
+
+  <Step title="Add required template structure">
+    Open `index.liquid` and build your HTML. The single most critical requirement is that the **root container must include the `my-site` CSS class**. Without it, Fluid cannot load the affiliate-specific styles and the page will render unstyled.
+
+    ```html
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      integrity="XXXXX-XXXXX"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+
+    <div class="themes-wrapper_default my-site">
+
+      <!-- Navigation -->
+      <nav class="themes-nav_default">
+        <img src="{{ fluid_affiliate.image }}" class="ui image circular tiny" id="image-swap" alt="{{ fluid_affiliate.name }}">
+        <h2>{{ fluid_affiliate.name }}</h2>
+      </nav>
+
+      <!-- Body content -->
+      <main class="themes-body_default">
+        <!-- Bio section with expand/collapse -->
+        <div class="affiliate-bio">
+          <p>{{ fluid_affiliate.bio }}</p>
+        </div>
+
+        <!-- Social icons -->
+        <div class="social-links">
+          {% if fluid_affiliate.facebook_url %}
+            <a href="{{ fluid_affiliate.facebook_url }}" target="_blank"><i class="fab fa-facebook"></i></a>
+          {% endif %}
+          {% if fluid_affiliate.instagram_url %}
+            <a href="{{ fluid_affiliate.instagram_url }}" target="_blank"><i class="fab fa-instagram"></i></a>
+          {% endif %}
+          {% if fluid_affiliate.twitter_url %}
+            <a href="{{ fluid_affiliate.twitter_url }}" target="_blank"><i class="fab fa-twitter"></i></a>
+          {% endif %}
+        </div>
+
+        <!-- Affiliate links -->
+        {% for link in fluid_affiliate.links %}
+          <a href="{{ link.url }}" class="affiliate-link">{{ link.title }}</a>
+        {% endfor %}
+      </main>
+
+      <!-- Footer -->
+      <footer class="themes-footer_default">
+        <p>&copy; {{ company.name }}</p>
+      </footer>
+
+    </div>
+    ```
+  </Step>
+
+  <Step title="Apply the required CSS classes">
+    Each structural element of your template requires a specific CSS class so that Fluid's style-loading system can target it correctly. The root container's `my-site` class is **critical** — everything else is standard.
+
+    | Element | Required Classes | Purpose |
+    |---------|-----------------|---------|
+    | Root container | `themes-wrapper_default my-site` | **CRITICAL** — enables affiliate style loading |
+    | Navigation | `themes-nav` or `themes-nav_default` | Navigation bar styling |
+    | Body content | `themes-body` or `themes-body_default` | Main content area styling |
+    | Footer | `themes-footer` or `themes-footer_default` | Footer styling |
+
+    <Warning>
+      If the root `<div>` is missing the `my-site` class, the theme's styles will not load and the page will appear unstyled. Double-check this class whenever you create a new theme file.
+    </Warning>
+  </Step>
+
+  <Step title="Build standard components">
+    Most MySite themes include a common set of components. Use these patterns as a starting point:
+
+    **Avatar**
+    ```html
+    <img src="{{ fluid_affiliate.image }}"
+         class="ui image circular tiny"
+         id="image-swap"
+         alt="{{ fluid_affiliate.name }}">
+    ```
+
+    **Social Icons** (Facebook, Twitter, Instagram, YouTube, Pinterest, LinkedIn, TikTok, WeChat, WhatsApp)
+    ```liquid
+    {% if fluid_affiliate.youtube_url %}
+      <a href="{{ fluid_affiliate.youtube_url }}" target="_blank" rel="noopener">
+        <i class="fab fa-youtube"></i>
+      </a>
+    {% endif %}
+    ```
+
+    **Affiliate Links**
+    ```liquid
+    {% for link in fluid_affiliate.links %}
+      <a href="{{ link.url }}" class="affiliate-link-item">
+        {{ link.title }}
+      </a>
+    {% endfor %}
+    ```
+
+    **Bio with expand/collapse**
+    ```html
+    <div class="bio-container">
+      <p class="bio-text bio-collapsed">{{ fluid_affiliate.bio }}</p>
+      <button class="bio-toggle" onclick="this.previousElementSibling.classList.toggle('bio-collapsed')">
+        Read more
+      </button>
+    </div>
+    ```
+  </Step>
+
+  <Step title="Submit the theme to the platform">
+    Once your theme files are ready, use the Fluid Themes CLI to push your theme to the platform. From the root of your theme directory:
+
+    ```bash
+    # Push your theme files to Fluid
+    fluid theme push
+
+    # Push as a new draft without overwriting an existing published theme
+    fluid theme push --unpublished
+    ```
+
+    After pushing, your theme will be available in the Fluid admin interface. Navigate to **Sidebar → Website → MySite Theme** to confirm it has been registered successfully.
+
+    <Note>
+      If you haven't set up the CLI yet, follow the [CLI installation and authentication guide](/themes/cli) first. You'll need to run `fluid login` and `fluid whoami` before pushing.
+    </Note>
+  </Step>
+
+  <Step title="Manage and publish the theme in admin">
+    After pushing, the theme is available at **Sidebar → Website → MySite Theme** in the admin panel. Company admins can use the following actions:
+
+    - **Customize** — Edit the Liquid template and CSS directly in the admin editor with syntax highlighting
+    - **Preview** — Test changes in a live preview before pushing them to production
+    - **Publish** — Deploy the customized theme to the rep's public MySite page
+    - **Revert** — Restore to the original deployed version of the theme
+  </Step>
+</Steps>
+
+## Liquid Variables Reference
+
+The following variables are available inside every MySite theme template:
+
+| Variable | Key Properties | Description |
+|----------|---------------|-------------|
+| `fluid_affiliate` | `name`, `bio`, `image` | Affiliate's display name, biography text, and avatar image URL |
+| `fluid_affiliate` | `links` | Array of affiliate link objects, each with `url` and `title` |
+| `fluid_affiliate` | `facebook_url`, `twitter_url`, `instagram_url`, `youtube_url`, `pinterest_url`, `linkedin_url`, `tiktok_url`, `wechat_url`, `whatsapp_url` | Social media profile URLs (empty string if not configured) |
+| `company` | Various properties | Company name, logo, and configuration data |
+| `request` | `path`, `host`, `page_type` | Request context for the current page load |
+
+## Common Issues
+
+<Accordion title="Styles are not loading on the MySite page">
+  The root container in your `index.liquid` is almost certainly missing the `my-site` CSS class. Ensure your outermost `<div>` looks exactly like this: `<div class="themes-wrapper_default my-site">`. Without that class, Fluid's style injection system cannot attach the affiliate styles to your template.
+</Accordion>
+
+<Accordion title="The theme is not visible in the admin interface">
+  Make sure you have pushed your theme files using the Fluid CLI (`fluid theme push`). The theme is not registered automatically when you create the files locally — you must push them to the platform first. After pushing, navigate to **Sidebar → Website → MySite Theme** and refresh the page.
+</Accordion>
+
+<Accordion title="JavaScript errors appear on the page">
+  Place all custom JavaScript in the `script.js` file rather than inline `<script>` tags in your `index.liquid`. Fluid processes `script.js` separately and ensures it is loaded correctly. Inline scripts in the Liquid template may be stripped or cause conflicts.
+</Accordion>
+
+<Accordion title="Affiliate bio or links are empty">
+  Verify that you're accessing the correct variable names. The affiliate's links are at `fluid_affiliate.links` (not `affiliate.links`). Social media URLs are individual properties like `fluid_affiliate.instagram_url`. If a rep hasn't filled in a field, the value is an empty string — always guard optional fields with `{% if %}` before rendering.
+</Accordion>

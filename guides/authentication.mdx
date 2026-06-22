@@ -1,0 +1,167 @@
+---
+title: "Authenticate with the Fluid API"
+sidebarTitle: "Authentication"
+description: "Learn how to authenticate with the Fluid API using company tokens, partner tokens, and scoped public tokens for client-side SDKs and embeds."
+---
+
+Fluid uses token-based authentication for all API requests. Every call to a company-related endpoint must include a valid token in the `Authorization` header. This page covers the three token types — company tokens, partner tokens, and public tokens — and explains when and how to use each one.
+
+## Authentication Methods
+
+Fluid supports two types of server-side authentication tokens and one type of client-side public token.
+
+### Company Tokens
+
+Company tokens provide full administrative access to your company's data and settings. Use a company token for backend integrations, internal tooling, and any operation that requires unrestricted access.
+
+**How to obtain a company token:**
+
+1. Go to [https://www.fluid.app/settings/developer](https://www.fluid.app/settings/developer).
+2. Find the **Developer** section.
+3. Generate a new company token and copy it immediately — it will not be shown again.
+
+<Warning>
+  Treat your company token as a secret. It grants full administrative access to your company's data. Store it in an environment variable or a dedicated secrets manager and never expose it in client-side code or source control.
+</Warning>
+
+### Partner Tokens
+
+Partner tokens provide company-level API access and are designed for third-party integrations and automated systems. Unlike company tokens, partner tokens can be managed programmatically and support expiration dates, making them a better choice when you need to issue credentials to external services.
+
+Manage partner tokens via the `/api/v2025-06/partner_tokens` endpoint. When creating a token, provide a descriptive label and an optional expiration date for easier lifecycle management.
+
+---
+
+## Including the Token in Requests
+
+Once you have a company or partner token, include it in the `Authorization` header of every API request using the Bearer scheme:
+
+```
+Authorization: Bearer <your_token>
+```
+
+**Example:**
+
+```bash
+curl -X GET https://api.fluid.app/api/companies \
+  -H "Authorization: Bearer your_company_token"
+```
+
+---
+
+## Public Tokens (SDK & Embeds)
+
+Public tokens are designed for client-side use in browser-based environments such as the [DAM Picker SDK](https://docs.fluid.app/sdk/files-sdk). They are prefixed with `pub-`, carry scoped permissions, and are safe to expose in frontend code — but only within the security boundaries described below.
+
+### Token Security Modes
+
+Public tokens support two mutually compatible security strategies. You must apply at least one of them; a public token with neither an expiration date nor a domain allowlist will fail validation.
+
+<Tabs>
+  <Tab title="Option A — Short-lived tokens">
+    Short-lived tokens have no domain allowlist and **must** include an expiration date (`expires_at`). Generate a fresh token server-side on each page load and inject it into your frontend. The token expires automatically, so even if it is intercepted it has a limited window of use.
+
+    ```json
+    POST /api/v2025-06/tokens/public
+    {
+      "public_token": {
+        "name": "Session Token",
+        "scopes": ["dam:browse", "dam:upload"],
+        "expires_at": "2026-04-16T01:00:00Z"
+      }
+    }
+    ```
+
+    **Recommended flow:**
+
+    1. The user loads your page.
+    2. Your server calls the Fluid API with a private company or partner token to create a public token with a short expiration (e.g. 1 hour).
+    3. Your server passes the `pub-` token to the frontend.
+    4. The frontend uses the token with the DAM Picker SDK.
+    5. The token expires automatically — no cleanup required.
+
+    Use this approach when you have a backend that can call the Fluid API, you want maximum per-session security, or you are building a server-rendered application.
+  </Tab>
+  <Tab title="Option B — Long-lived tokens">
+    Long-lived tokens use a `domain_allowlist` instead of an expiration date. The allowlist restricts which browser origins can use the token, so it is safe to embed in client-side code permanently. Requests from origins not on the list are rejected.
+
+    ```json
+    POST /api/v2025-06/tokens/public
+    {
+      "public_token": {
+        "name": "Production Picker Token",
+        "scopes": ["dam:browse", "dam:upload"],
+        "domain_allowlist": [
+          "https://mystore.com",
+          "https://*.mystore.com"
+        ]
+      }
+    }
+    ```
+
+    The allowlist supports wildcards (`*.mystore.com`) and is checked against the browser's `Origin` header.
+
+    Use this approach when you do not have a backend to generate tokens dynamically, you are embedding the SDK in a static site or third-party platform, or you know the exact domains where the SDK will run.
+  </Tab>
+</Tabs>
+
+<Note>
+  A public token **without** an expiration date **and** without a domain allowlist will fail validation. You must provide at least one of `expires_at` or `domain_allowlist`.
+</Note>
+
+### Scopes
+
+Public tokens are scoped — they can only access endpoints that match their declared scopes. Declare only the scopes your integration actually needs.
+
+| Scope | Access |
+|---|---|
+| `dam:browse` | Browse and search DAM assets |
+| `dam:upload` | Upload files to the DAM |
+| `dam:unsplash` | Search Unsplash stock photos |
+| `dam:ai_generate` | Generate images with AI |
+| `media:read` | Read media content |
+| `products:read` | Read product data |
+| `enrollments:read` | Read enrollment data |
+| `playlists:read` | Read playlist data |
+| `forms:read` | Read form data |
+
+For the DAM Picker SDK, the typical scopes are `dam:browse` and `dam:upload`. Add `dam:unsplash` to enable stock photo search and `dam:ai_generate` to enable AI image generation.
+
+---
+
+## Best Practices
+
+Follow these practices to keep your integration secure and reliable:
+
+- **Protect your tokens.** Store company and partner tokens in environment variables or a secrets manager. Never hard-code them in source files or expose them in client-facing code.
+- **Handle rate limits gracefully.** The Fluid API enforces rate limits. Implement retry logic with exponential backoff so transient throttling errors do not break your integration.
+- **Validate inputs and outputs.** Sanitize all data you send to the API and validate all responses before using them in your application to prevent injection vulnerabilities and unexpected behavior.
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Token invalid or expired">
+    If you receive a `401 Unauthorized` response, check the following:
+
+    - Verify that the token has not passed its `expires_at` date.
+    - Confirm that the `Authorization` header is formatted exactly as `Bearer <your_token>` with a single space between `Bearer` and the token value.
+    - Make sure you are not accidentally including extra whitespace or line breaks around the token.
+    - If the token was recently rotated, ensure your application is using the latest value.
+  </Accordion>
+  <Accordion title="Network errors reaching the API">
+    If your requests are timing out or failing to connect:
+
+    - Confirm that your server or runtime environment allows outbound HTTPS traffic to `api.fluid.app` on port 443.
+    - Check whether a firewall, proxy, or VPN is blocking requests to Fluid's API endpoints.
+    - Verify that DNS resolves `api.fluid.app` correctly from your environment.
+  </Accordion>
+  <Accordion title="403 Forbidden on scoped public token requests">
+    A `403 Forbidden` response from a public token request usually means a scope mismatch:
+
+    - Review the scopes declared on your public token and compare them against the permissions required by the endpoint you are calling.
+    - Update the token's scopes or generate a new token that includes the missing scope.
+    - Remember that public tokens can only access endpoints that explicitly match their declared scopes — there is no implicit inheritance.
+  </Accordion>
+</AccordionGroup>

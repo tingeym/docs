@@ -1,0 +1,136 @@
+---
+title: "Files SDK: Embed a DAM File Picker into Any Web App"
+sidebarTitle: "Overview"
+description: "Embed a full-featured Digital Asset Management file picker into any web app with the @fluid-app/dam-picker SDK — upload, browse, and transform assets."
+---
+
+The Files SDK (`@fluid-app/dam-picker`) lets you drop a complete Digital Asset Management file picker into any web application. Users can upload files from their computer, import from a URL, browse your company's DAM library, search Unsplash stock photos, or generate images with AI — all from a single modal. When a user confirms a selection, your app receives structured asset data including the public URL, asset code, MIME type, and optional dimension metadata.
+
+## Installation
+
+Install the package from your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install @fluid-app/dam-picker
+```
+
+```bash pnpm
+pnpm add @fluid-app/dam-picker
+```
+
+```bash yarn
+yarn add @fluid-app/dam-picker
+```
+
+</CodeGroup>
+
+## Quick Start
+
+Import `DamPicker`, create an instance with your public token and an `onSelect` callback, then call `open()` to show the modal:
+
+```javascript
+import { DamPicker } from '@fluid-app/dam-picker';
+
+const picker = new DamPicker({
+  token: 'pub-your-public-token',
+  onSelect: (result) => {
+    console.log('Selected:', result.asset.url);
+  },
+});
+
+picker.open();
+```
+
+## Authentication
+
+The SDK requires a **public token** with a `pub-` prefix. You create these tokens via the [Public Tokens API](/api-reference/admin-v2025-06#tag/tokens). Server-side token types (`C-`, `PT-`, `dit-`, `cdt-`, `U-`) are blocked by the SDK for security — they must never be used in client-side code.
+
+Public tokens come in two forms:
+
+**Short-lived tokens** — must have an expiration date. Generate these server-side on each page load so a fresh token is always in use.
+
+**Long-lived tokens** — must have a `domain_allowlist` configured. Because they are locked to specific domains, no expiration is required.
+
+See the [Authentication Guide](/guides/authentication) for full details on token expiration, domain allowlists, and available scopes.
+
+## Source Tabs
+
+Control which acquisition sources appear as tabs inside the picker using the `fromSources` option. The table below lists every available source:
+
+| Source ID | Tab Label | Description |
+|---|---|---|
+| `local_file_system` | Upload | Upload a file from the user's computer |
+| `url` | URL | Import a file from a remote URL |
+| `dam_library` | Library | Browse your company's DAM library |
+| `unsplash` | Stock | Search and import Unsplash stock photos |
+| `ai_generate` | Generate | Generate a new image using AI |
+
+## AI Transformation Tools
+
+After a user selects an asset, the picker can open a transformation editor. Use the `transformations` option to control which tools are available:
+
+| Tool | Key | Description |
+|---|---|---|
+| Crop | `crop` | Crop with aspect ratio presets |
+| Rotate | `rotate` | Rotate left or right |
+| Quality | `quality` | Quality selector (Very Low to Full) |
+| Remove Background | `removeBackground` | AI-powered background removal |
+| Change Background | `changeBackground` | AI: Replace background with a text prompt |
+| Upscale | `upscale` | AI: Increase image resolution |
+| Retouch | `retouch` | AI: Enhance and retouch image |
+| Drop Shadow | `dropShadow` | AI: Add a realistic drop shadow |
+| Smart Crop | `smartCrop` | AI: Auto-focus crop on the subject |
+| Edit with AI | `editWithAi` | AI: Edit the image with a text prompt |
+
+Set `transformations: false` to skip the editor entirely, or pass an object with individual tool keys set to `true` or `false` to show only the tools you need.
+
+## Result Object
+
+When the user confirms a selection, your `onSelect` callback receives a `DamPickerResult` object. For single-select workflows use `result.asset`; for multi-select use `result.assets`:
+
+```typescript
+interface DamPickerResult {
+  asset: SelectedAsset;
+  assets: SelectedAsset[];
+}
+
+interface SelectedAsset {
+  url: string;
+  assetCode: string;
+  name: string;
+  mimeType: string;
+  variantId?: string;
+  metadata?: {
+    width?: number;
+    height?: number;
+    fileSize?: number;
+  };
+}
+```
+
+## Instance Methods
+
+After creating a `DamPicker` instance, you control it through these methods:
+
+| Method | Description |
+|---|---|
+| `open()` | Opens the picker modal |
+| `close()` | Closes the picker modal |
+| `destroy()` | Cleans up the instance and removes all DOM elements |
+
+<Warning>
+Always call `picker.destroy()` when the picker is no longer needed — for example in component unmount hooks. Skipping this step leaks DOM elements and event listeners.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="sliders" href="/sdk/files/configuration">
+    Explore every option: file type filters, size limits, dimension constraints, and transformation tools.
+  </Card>
+  <Card title="Framework Guides" icon="code" href="/sdk/files/frameworks">
+    See ready-to-use examples for React, Vue 3, Angular, and Svelte.
+  </Card>
+</CardGroup>
